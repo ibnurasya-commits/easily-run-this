@@ -542,20 +542,29 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, ran
       .map(([key, months]) => {
         const sortedMonths = Object.entries(months).sort((a, b) => a[0].localeCompare(b[0]));
         
-        // Calculate total and compare last month to previous month
-        let totalTpt = 0, totalTpv = 0;
-        sortedMonths.forEach(([_, values]) => {
-          totalTpt += values.tpt;
-          totalTpv += values.tpv;
+        // Split into two halves of the date range for period-over-period comparison
+        const midPoint = Math.floor(sortedMonths.length / 2);
+        
+        let firstHalfTpt = 0, firstHalfTpv = 0;
+        let secondHalfTpt = 0, secondHalfTpv = 0;
+        
+        sortedMonths.forEach(([_, values], index) => {
+          if (index < midPoint) {
+            firstHalfTpt += values.tpt;
+            firstHalfTpv += values.tpv;
+          } else {
+            secondHalfTpt += values.tpt;
+            secondHalfTpv += values.tpv;
+          }
         });
         
-        // Get last 2 months for category calculation
-        const lastMonth = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1][1] : null;
-        const prevMonth = sortedMonths.length > 1 ? sortedMonths[sortedMonths.length - 2][1] : null;
+        const totalTpt = firstHalfTpt + secondHalfTpt;
+        const totalTpv = firstHalfTpv + secondHalfTpv;
         
-        const category = lastMonth && prevMonth
-          ? deriveCategory(lastMonth.tpt, lastMonth.tpv, prevMonth.tpt, prevMonth.tpv)
-          : "performing" as const;
+        // Compare second half to first half for category
+        const category = midPoint > 0
+          ? deriveCategory(secondHalfTpt, secondHalfTpv, firstHalfTpt, firstHalfTpv)
+          : (totalTpt === 0 && totalTpv === 0 ? "idle" as const : "performing" as const);
         
         return {
           id: key,
