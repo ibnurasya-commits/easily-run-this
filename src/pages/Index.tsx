@@ -260,8 +260,7 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
     
     let query = supabase
       .from('merchant_data')
-      .select('date, tpt, tpv, brand_id')
-      .limit(10000); // Increase limit to handle large datasets
+      .select('date, tpt, tpv, brand_id');
     
     // Filter by product and pillar
     if (dbProduct) query = query.eq('product_type', dbProduct);
@@ -274,6 +273,9 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
       const nextMonthStart = addMonths(endDateObj, 1).toISOString().slice(0, 10);
       query = query.lt('date', nextMonthStart);
     }
+    
+    // Apply limit at the end
+    query = query.limit(10000);
     
     const { data, error } = await query;
     
@@ -363,8 +365,7 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
     
     let query = supabase
       .from('merchant_data')
-      .select('date, pillar, product_type, tpt, tpv')
-      .limit(10000); // Increase limit to handle large datasets
+      .select('date, pillar, product_type, tpt, tpv');
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
@@ -375,6 +376,9 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
       query = query.lt('date', nextMonthStart);
       console.log("Date filters:", { rangeStart: `${rangeStart}-01`, rangeEnd: nextMonthStart });
     }
+    
+    // Apply limit at the end
+    query = query.limit(10000);
     
     const { data, error } = await query;
     
@@ -469,8 +473,7 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, ran
     
     let query = supabase
       .from('merchant_data')
-      .select('date, brand_id, merchant_name, product_type, tpt, tpv')
-      .limit(10000); // Increase limit to handle large datasets
+      .select('date, brand_id, merchant_name, product_type, tpt, tpv');
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
@@ -480,6 +483,9 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, ran
       const nextMonthStart = addMonths(endDateObj, 1).toISOString().slice(0, 10);
       query = query.lt('date', nextMonthStart);
     }
+    
+    // Apply limit at the end
+    query = query.limit(10000);
     
     const { data, error } = await query;
     
