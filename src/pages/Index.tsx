@@ -849,22 +849,22 @@ export default function PaymentsKPIDashboard() {
   // Churn
   const [churnSearch, setChurnSearch] = useState("");
   const [churnRisk, setChurnRisk] = useState<string>("all");
-  const [churnSortKey, setChurnSortKey] = useState<string>("brand_id");
-  const [churnSortDir, setChurnSortDir] = useState<SortDir>("asc");
+  const [churnSortKey, setChurnSortKey] = useState<string>("tpt");
+  const [churnSortDir, setChurnSortDir] = useState<SortDir>("desc");
   // Merchants Data View
   const [merchantsSearch, setMerchantsSearch] = useState("");
   const [merchantsCategory, setMerchantsCategory] = useState<string>("all");
-  const [merchantsSortKey, setMerchantsSortKey] = useState<string>("brand_id");
-  const [merchantsSortDir, setMerchantsSortDir] = useState<SortDir>("asc");
+  const [merchantsSortKey, setMerchantsSortKey] = useState<string>("tpv");
+  const [merchantsSortDir, setMerchantsSortDir] = useState<SortDir>("desc");
   // Product agg view
   const [aggSortKey, setAggSortKey] = useState<string>("date_or_month");
-  const [aggSortDir, setAggSortDir] = useState<SortDir>("asc");
+  const [aggSortDir, setAggSortDir] = useState<SortDir>("desc");
   const [aggCategory, setAggCategory] = useState<string>("all");
   // Profit view
   const [profitSearch, setProfitSearch] = useState("");
   const [profitActionCat, setProfitActionCat] = useState<string>("all");
-  const [profitSortKey, setProfitSortKey] = useState<string>("brand_id");
-  const [profitSortDir, setProfitSortDir] = useState<SortDir>("asc");
+  const [profitSortKey, setProfitSortKey] = useState<string>("tpv");
+  const [profitSortDir, setProfitSortDir] = useState<SortDir>("desc");
 
   // Pagination state
   const [aggPage, setAggPage] = useState(1);
