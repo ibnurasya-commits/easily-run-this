@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, BarChart3, Table as TableIcon, Sparkles, RefreshCw, Users } from "lucide-react";
+import { CalendarDays, BarChart3, Table as TableIcon, Sparkles, RefreshCw, Users, Upload } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DateRange } from "react-day-picker";
 import {
@@ -888,6 +888,24 @@ export default function PaymentsKPIDashboard() {
     input.click();
   };
 
+  const handleImportFromFile = async () => {
+    setImporting(true);
+    try {
+      const response = await fetch('/data/import.csv');
+      const csvContent = await response.text();
+      const { importCheckoutData } = await import("@/lib/importCheckoutData");
+      const result = await importCheckoutData(csvContent);
+      console.log("Import result:", result);
+      alert(`Successfully imported ${result.imported} records!`);
+      await loadAll();
+    } catch (error) {
+      console.error("Import error:", error);
+      alert("Failed to import data. Check console for details.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   useEffect(() => { loadAll(); }, [product, period, pillar, rangeStart, rangeEnd, page, merchantPage]);
   useEffect(() => { loadMerchantRecos(); }, [product, churnPage, profitPage]);
 
@@ -957,11 +975,20 @@ export default function PaymentsKPIDashboard() {
               <Button 
                 variant="secondary" 
                 size="sm" 
+                onClick={handleImportFromFile}
+                disabled={importing}
+                className="gap-2 bg-emerald-500/90 backdrop-blur-sm border-white/30 text-white hover:bg-emerald-600 transition-all"
+              >
+                <Upload className="h-4 w-4" /> {importing ? "Importing..." : "Import Uploaded Data"}
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
                 onClick={handleImportData}
                 disabled={importing}
                 className="gap-2 bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 transition-all"
               >
-                <Users className="h-4 w-4" /> {importing ? "Importing..." : "Import CSV Data"}
+                <Users className="h-4 w-4" /> {importing ? "Importing..." : "Import CSV File"}
               </Button>
               <Button 
                 variant="secondary" 
