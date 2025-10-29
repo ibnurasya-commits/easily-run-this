@@ -541,13 +541,18 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd }: any
     
     console.log("fetchMerchantChurn - rangeStart:", rangeStart, "rangeEnd:", rangeEnd);
     
-    // Calculate previous period
-    const currentStart = rangeStart || rangeEnd || new Date().toISOString().slice(0, 7);
-    const currentEnd = rangeEnd || currentStart;
-    const [currYear, currMonth] = currentStart.split('-').map(Number);
-    const prevDate = new Date(currYear, currMonth - 2, 1); // -2 because month is 0-indexed and we want previous month
-    const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-    const prevEnd = prevStart;
+    // Use the most recent complete month as current period
+    const currentMonth = rangeEnd || new Date().toISOString().slice(0, 7);
+    const currentDate = new Date(currentMonth + '-01');
+    
+    // Previous month for comparison
+    const prevDate = addMonths(currentDate, -1);
+    const prevMonth = prevDate.toISOString().slice(0, 7);
+    
+    const currentStart = currentMonth;
+    const currentEnd = currentMonth;
+    const prevStart = prevMonth;
+    const prevEnd = prevMonth;
     
     console.log("Comparing periods - current:", currentStart, "to", currentEnd, "vs prev:", prevStart, "to", prevEnd);
     
@@ -630,13 +635,20 @@ async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd }: an
     const dbProduct = mapProductToDb(product);
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     
-    // Calculate previous period
-    const currentStart = rangeStart || rangeEnd || new Date().toISOString().slice(0, 7);
-    const currentEnd = rangeEnd || currentStart;
-    const [currYear, currMonth] = currentStart.split('-').map(Number);
-    const prevDate = new Date(currYear, currMonth - 2, 1);
-    const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-    const prevEnd = prevStart;
+    console.log("fetchMerchantProfit - rangeStart:", rangeStart, "rangeEnd:", rangeEnd);
+    
+    // Use the most recent complete month as current period
+    const currentMonth = rangeEnd || new Date().toISOString().slice(0, 7);
+    const currentDate = new Date(currentMonth + '-01');
+    
+    // Previous month for comparison
+    const prevDate = addMonths(currentDate, -1);
+    const prevMonth = prevDate.toISOString().slice(0, 7);
+    
+    const currentStart = currentMonth;
+    const currentEnd = currentMonth;
+    const prevStart = prevMonth;
+    const prevEnd = prevMonth;
     
     // Calculate next month boundaries for proper date ranges
     const currentNextMonth = addMonths(new Date(currentEnd + '-01'), 1).toISOString().slice(0, 10);
