@@ -407,17 +407,25 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
         quarterMap[key].tpv += Number(row.tpv) || 0;
       });
       
-      const rows = Object.entries(quarterMap)
-        .map(([dateLabel, values]) => ({
+      const sortedQuarters = Object.entries(quarterMap).sort((a, b) => a[0].localeCompare(b[0]));
+      
+      const rows = sortedQuarters.map(([dateLabel, values], index) => {
+        // Compare to previous quarter if available
+        const prevValues = index > 0 ? sortedQuarters[index - 1][1] : null;
+        const category = prevValues 
+          ? deriveCategory(values.tpt, values.tpv, prevValues.tpt, prevValues.tpv)
+          : "performing" as const;
+        
+        return {
           id: `${values.product}-${values.pillar}-${dateLabel}`,
           date_or_month: dateLabel,
           pillar_name: PILLARS.find((p) => p.key === values.pillar || (p.key === "wallets_billing" && values.pillar === "wallet_billing"))?.label || values.pillar,
           product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
           tpt: Math.round(values.tpt),
           tpv: Math.round(values.tpv),
-          category: "performing" as const
-        }))
-        .sort((a, b) => a.date_or_month.localeCompare(b.date_or_month));
+          category
+        };
+      });
       
       return { rows };
     } else {
@@ -439,17 +447,25 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
         monthMap[key].tpv += Number(row.tpv) || 0;
       });
       
-      const rows = Object.entries(monthMap)
-        .map(([dateKey, values]) => ({
+      const sortedMonths = Object.entries(monthMap).sort((a, b) => a[0].localeCompare(b[0]));
+      
+      const rows = sortedMonths.map(([dateKey, values], index) => {
+        // Compare to previous month if available
+        const prevValues = index > 0 ? sortedMonths[index - 1][1] : null;
+        const category = prevValues 
+          ? deriveCategory(values.tpt, values.tpv, prevValues.tpt, prevValues.tpv)
+          : "performing" as const;
+        
+        return {
           id: `${values.product}-${values.pillar}-${dateKey}`,
           date_or_month: dateKey,
           pillar_name: PILLARS.find((p) => p.key === values.pillar || (p.key === "wallets_billing" && values.pillar === "wallet_billing"))?.label || values.pillar,
           product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
           tpt: Math.round(values.tpt),
           tpv: Math.round(values.tpv),
-          category: "performing" as const
-        }))
-        .sort((a, b) => a.date_or_month.localeCompare(b.date_or_month));
+          category
+        };
+      });
       
       console.log("Month aggregations:", Object.entries(monthMap).map(([k, v]) => ({
         month: k,
@@ -491,35 +507,63 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, ran
     
     if (error) throw error;
     
-    // Group by merchant and product
-    const merchantMap: Record<string, { tpt: number; tpv: number; brand_id: string; merchant_name: string; product: string }> = {};
+    // Group by merchant, product, and month for period-over-period comparison
+    const merchantMonthMap: Record<string, Record<string, { tpt: number; tpv: number }>> = {};
+    const merchantMetaMap: Record<string, { brand_id: string; merchant_name: string; product: string }> = {};
     
     data?.forEach(row => {
       const key = `${row.brand_id}-${row.product_type}`;
+      const month = row.date.slice(0, 7);
       
-      if (!merchantMap[key]) {
-        merchantMap[key] = {
-          tpt: 0,
-          tpv: 0,
+      if (!merchantMetaMap[key]) {
+        merchantMetaMap[key] = {
           brand_id: row.brand_id,
           merchant_name: row.merchant_name,
           product: row.product_type
         };
       }
-      merchantMap[key].tpt += Number(row.tpt) || 0;
-      merchantMap[key].tpv += Number(row.tpv) || 0;
+      
+      if (!merchantMonthMap[key]) {
+        merchantMonthMap[key] = {};
+      }
+      
+      if (!merchantMonthMap[key][month]) {
+        merchantMonthMap[key][month] = { tpt: 0, tpv: 0 };
+      }
+      
+      merchantMonthMap[key][month].tpt += Number(row.tpt) || 0;
+      merchantMonthMap[key][month].tpv += Number(row.tpv) || 0;
     });
     
-    const rows = Object.values(merchantMap)
-      .map((values) => ({
-        id: `${values.brand_id}-${values.product}`,
-        brand_id: values.brand_id,
-        merchant_name: values.merchant_name,
-        product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
-        tpt: Math.round(values.tpt),
-        tpv: Math.round(values.tpv),
-        category: "performing" as const
-      }))
+    const rows = Object.entries(merchantMonthMap)
+      .map(([key, months]) => {
+        const sortedMonths = Object.entries(months).sort((a, b) => a[0].localeCompare(b[0]));
+        
+        // Calculate total and compare last month to previous month
+        let totalTpt = 0, totalTpv = 0;
+        sortedMonths.forEach(([_, values]) => {
+          totalTpt += values.tpt;
+          totalTpv += values.tpv;
+        });
+        
+        // Get last 2 months for category calculation
+        const lastMonth = sortedMonths.length > 0 ? sortedMonths[sortedMonths.length - 1][1] : null;
+        const prevMonth = sortedMonths.length > 1 ? sortedMonths[sortedMonths.length - 2][1] : null;
+        
+        const category = lastMonth && prevMonth
+          ? deriveCategory(lastMonth.tpt, lastMonth.tpv, prevMonth.tpt, prevMonth.tpv)
+          : "performing" as const;
+        
+        return {
+          id: key,
+          brand_id: merchantMetaMap[key].brand_id,
+          merchant_name: merchantMetaMap[key].merchant_name,
+          product: PRODUCTS.find((p) => p.key === merchantMetaMap[key].product)?.label || merchantMetaMap[key].product,
+          tpt: Math.round(totalTpt),
+          tpv: Math.round(totalTpv),
+          category
+        };
+      })
       .sort((a, b) => a.brand_id.localeCompare(b.brand_id));
     
     return { rows };
