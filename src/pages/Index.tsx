@@ -439,18 +439,31 @@ export default function PaymentsKPIDashboard() {
   };
 
   const handleImportData = async () => {
-    setImporting(true);
-    try {
-      const { importCheckoutData } = await import("@/lib/importCheckoutData");
-      const result = await importCheckoutData();
-      console.log("Import result:", result);
-      alert(`Successfully imported ${result.imported} records!`);
-    } catch (error) {
-      console.error("Import error:", error);
-      alert("Failed to import data. Check console for details.");
-    } finally {
-      setImporting(false);
-    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv';
+    
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      if (!file) return;
+      
+      setImporting(true);
+      try {
+        const csvContent = await file.text();
+        const { importCheckoutData } = await import("@/lib/importCheckoutData");
+        const result = await importCheckoutData(csvContent);
+        console.log("Import result:", result);
+        alert(`Successfully imported ${result.imported} records!`);
+      } catch (error) {
+        console.error("Import error:", error);
+        alert("Failed to import data. Check console for details.");
+      } finally {
+        setImporting(false);
+      }
+    };
+    
+    input.click();
   };
 
   useEffect(() => { loadAll(); }, [product, period, pillar, rangeStart, rangeEnd, page, merchantPage]);
