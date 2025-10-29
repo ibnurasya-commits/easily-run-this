@@ -36,19 +36,20 @@ export function DateRangePicker({
     date?.to ? format(date.to, "yyyy-MM") : ""
   );
 
-  // Generate months from 2024-01 to current month
+  // Generate months from October 2024 to September 2025
   const months = React.useMemo(() => {
     const result: string[] = [];
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1; // getMonth() is 0-indexed
     
-    for (let year = 2024; year <= currentYear; year++) {
-      const maxMonth = year === currentYear ? currentMonth : 12;
-      for (let month = 1; month <= maxMonth; month++) {
-        result.push(`${year}-${String(month).padStart(2, '0')}`);
-      }
+    // October 2024 to December 2024
+    for (let month = 10; month <= 12; month++) {
+      result.push(`2024-${String(month).padStart(2, '0')}`);
     }
+    
+    // January 2025 to September 2025
+    for (let month = 1; month <= 9; month++) {
+      result.push(`2025-${String(month).padStart(2, '0')}`);
+    }
+    
     return result;
   }, []);
 
