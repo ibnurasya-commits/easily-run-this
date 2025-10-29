@@ -1029,7 +1029,7 @@ export default function PaymentsKPIDashboard() {
   const filteredChurn = useMemo(() => {
     const q = churnSearch.toLowerCase();
     const rows = churnRows.filter((r) => {
-      const nameOk = !q || r.merchant_name.toLowerCase().includes(q);
+      const nameOk = !q || r.merchant_name.toLowerCase().includes(q) || (r.brand_id || "").toLowerCase().includes(q);
       const riskOk = churnRisk === "all" || r.risk_category === churnRisk;
       return nameOk && riskOk;
     });
@@ -1039,7 +1039,7 @@ export default function PaymentsKPIDashboard() {
   const filteredProfit = useMemo(() => {
     const q = profitSearch.toLowerCase();
     const filtered = profitRows.filter((r) => {
-      const nameOk = r.merchant_name.toLowerCase().includes(q);
+      const nameOk = r.merchant_name.toLowerCase().includes(q) || (r.brand_id || "").toLowerCase().includes(q);
       const catOk = profitActionCat === "all" || r.potential_category === profitActionCat;
       return nameOk && catOk;
     });
@@ -1440,12 +1440,12 @@ export default function PaymentsKPIDashboard() {
               <Card className="border-none shadow-md">
                 <CardContent className="p-0">
                   {/* Controls: search + category filter */}
-                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-slate-50 to-slate-100/50">
                     <Input
                       placeholder="Search merchant name or brand id…"
                       value={merchantsSearch}
                       onChange={(e) => setMerchantsSearch(e.target.value)}
-                      className="md:max-w-sm"
+                      className="md:max-w-sm shadow-sm border-slate-200 focus:border-primary focus:ring-primary"
                     />
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-600">Merchant Category:</span>
@@ -1532,12 +1532,12 @@ export default function PaymentsKPIDashboard() {
               <Card className="border-none shadow-md">
                 <CardContent className="p-0">
                   {/* Controls: search by merchant name & filter by risk */}
-                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-slate-50 to-slate-100/50">
                     <Input
-                      placeholder="Search merchant name…"
+                      placeholder="Search merchant name or brand id…"
                       value={churnSearch}
                       onChange={(e) => setChurnSearch(e.target.value)}
-                      className="md:max-w-sm"
+                      className="md:max-w-sm shadow-sm border-slate-200 focus:border-primary focus:ring-primary"
                     />
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-600">Risk Category:</span>
@@ -1614,12 +1614,12 @@ export default function PaymentsKPIDashboard() {
               <Card className="border-none shadow-md">
                 <CardContent className="p-0">
                   {/* Controls: search by merchant & filter by potential category */}
-                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-slate-50 to-slate-100/50">
                     <Input
-                      placeholder="Search merchant…"
+                      placeholder="Search merchant name or brand id…"
                       value={profitSearch}
                       onChange={(e) => setProfitSearch(e.target.value)}
-                      className="md:max-w-sm"
+                      className="md:max-w-sm shadow-sm border-slate-200 focus:border-primary focus:ring-primary"
                     />
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-600">Potential Category:</span>
