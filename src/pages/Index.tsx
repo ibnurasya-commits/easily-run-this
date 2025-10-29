@@ -775,7 +775,10 @@ export default function PaymentsKPIDashboard() {
   const [rangeStart, setRangeStart] = useState("2025-05");
   const [rangeEnd, setRangeEnd] = useState("2025-09");
   const [rangeInput, setRangeInput] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date("2025-05-01"),
+    to: new Date("2025-09-01")
+  });
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
 
