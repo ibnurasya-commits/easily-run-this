@@ -356,6 +356,10 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     const dbProduct = mapProductToDb(product);
     
+    console.log("=== fetchMetricsTable DEBUG ===");
+    console.log("Params:", { product, pillar, period, rangeStart, rangeEnd });
+    console.log("Mapped:", { dbProduct, dbPillar });
+    
     let query = supabase
       .from('merchant_data')
       .select('date, pillar, product_type, tpt, tpv');
@@ -367,11 +371,14 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
       const endDateObj = new Date(rangeEnd + "-01");
       const nextMonthStart = addMonths(endDateObj, 1).toISOString().slice(0, 10);
       query = query.lt('date', nextMonthStart);
+      console.log("Date filters:", { rangeStart: `${rangeStart}-01`, rangeEnd: nextMonthStart });
     }
     
     const { data, error } = await query;
     
     if (error) throw error;
+    
+    console.log("Query returned rows:", data?.length);
     
     if (period === "quarter") {
       // Group by quarter
@@ -437,6 +444,13 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
           category: "performing" as const
         }))
         .sort((a, b) => a.date_or_month.localeCompare(b.date_or_month));
+      
+      console.log("Month aggregations:", Object.entries(monthMap).map(([k, v]) => ({
+        month: k,
+        tpt: Math.round(v.tpt),
+        tpv: Math.round(v.tpv)
+      })));
+      console.log("Returning rows:", rows.length);
       
       return { rows };
     }
