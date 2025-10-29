@@ -1168,7 +1168,7 @@ export default function PaymentsKPIDashboard() {
                 </div>
                 <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <LineChart data={series} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
                       <YAxis stroke="hsl(var(--muted-foreground))" />
@@ -1191,7 +1191,7 @@ export default function PaymentsKPIDashboard() {
                 </div>
                 <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <LineChart data={series} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
                       <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => formatRupiahBio(v)} />
