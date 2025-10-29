@@ -501,6 +501,8 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
     const dbProduct = product === "paychat" ? "PayChat" : product;
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     
+    console.log("fetchMerchantChurn - rangeStart:", rangeStart, "rangeEnd:", rangeEnd);
+    
     // Calculate previous period
     const currentStart = rangeStart || rangeEnd || new Date().toISOString().slice(0, 7);
     const currentEnd = rangeEnd || currentStart;
@@ -508,6 +510,8 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
     const prevDate = new Date(currYear, currMonth - 2, 1); // -2 because month is 0-indexed and we want previous month
     const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
     const prevEnd = prevStart;
+    
+    console.log("Comparing periods - current:", currentStart, "to", currentEnd, "vs prev:", prevStart, "to", prevEnd);
     
     // Calculate next month boundaries for proper date ranges
     const currentNextMonth = addMonths(new Date(currentEnd + '-01'), 1).toISOString().slice(0, 10);
@@ -533,6 +537,8 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
       currentQuery,
       previousQuery
     ]);
+    
+    console.log("Current data count:", currentData?.length, "Previous data count:", previousData?.length);
     
     // Aggregate by merchant
     const merchantMap = new Map<string, { brand_id: string; merchant_name: string; currentTPT: number; previousTPT: number }>();
@@ -571,6 +577,8 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
         };
       })
       .sort((a, b) => b.tpt_drop - a.tpt_drop); // Sort by highest drop first
+    
+    console.log("Merchant churn rows:", rows.length, "Total merchants:", merchantMap.size);
     
     const start = (page - 1) * size;
     const paginatedRows = rows.slice(start, start + size);
