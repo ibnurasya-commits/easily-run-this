@@ -1121,14 +1121,7 @@ export default function PaymentsKPIDashboard() {
             ); })()}
           </CardContent>
         </Card>
-        <Card 
-          className="border-none shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer hover:scale-105"
-          onClick={() => {
-            setTab("table");
-            setAggCategory(kpiMetrics.category);
-            setMerchantsCategory(kpiMetrics.category);
-          }}
-        >
+        <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-3">
               <div className="rounded-lg bg-primary/10 p-2">
@@ -1145,11 +1138,8 @@ export default function PaymentsKPIDashboard() {
               };
               const color = colorMap[kpiMetrics.category] || "text-foreground";
               return (
-                <div>
-                  <div className={`text-3xl font-bold capitalize ${color}`}>
-                    {kpiMetrics.category.replace(/_/g, ' ')}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-2">Click to filter tables</div>
+                <div className={`text-3xl font-bold capitalize ${color}`}>
+                  {kpiMetrics.category.replace(/_/g, ' ')}
                 </div>
               );
             })()}
@@ -1241,30 +1231,6 @@ export default function PaymentsKPIDashboard() {
 
         {/* TABLE TAB */}
         <TabsContent value="table">
-          {/* Category Filter Controls */}
-          {(aggCategory !== "all" || merchantsCategory !== "all") && (
-            <Card className="mb-4 border-none shadow-md">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Filtered by Status:</span>
-                    <StatusBadge c={aggCategory !== "all" ? aggCategory : merchantsCategory} />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAggCategory("all");
-                      setMerchantsCategory("all");
-                    }}
-                  >
-                    Clear Filter
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
           <Tabs defaultValue="agg">
             <TabsList className="mb-4 grid w-full grid-cols-2 bg-card shadow-sm rounded-lg p-1">
               <TabsTrigger value="agg" className="rounded-md">Product</TabsTrigger>
