@@ -837,6 +837,9 @@ export default function PaymentsKPIDashboard() {
 
   const loadAll = async () => {
     setLoading(true);
+    // Reset recommendation pagination when filters change
+    setChurnPage(1);
+    setProfitPage(1);
     try {
       console.log("Loading with rangeEnd:", rangeEnd, "product:", product, "pillar:", pillar);
       const [kpiData, { series }, tableRes, merchantRes] = await Promise.all([
