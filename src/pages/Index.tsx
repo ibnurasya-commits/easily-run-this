@@ -936,23 +936,6 @@ export default function PaymentsKPIDashboard() {
             <TabsContent value="agg">
               <Card className="border-none shadow-md">
                 <CardContent className="p-0">
-                  {/* Controls: filter by Category */}
-                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-                    <div className="flex-1" />
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-600">Product Category:</span>
-                      <Select value={aggCategory} onValueChange={setAggCategory}>
-                        <SelectTrigger className="w-48"><SelectValue placeholder="All" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All</SelectItem>
-                          <SelectItem value="performing">Performing</SelectItem>
-                          <SelectItem value="declining_frequency">Declining Frequency</SelectItem>
-                          <SelectItem value="value_drop">Value Drop</SelectItem>
-                          <SelectItem value="critical">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-slate-50 text-left">
@@ -962,25 +945,23 @@ export default function PaymentsKPIDashboard() {
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("product")}>Product{sortIndicator(aggSortKey==="product", aggSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("tpt")}>TPT{sortIndicator(aggSortKey==="tpt", aggSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("tpv")}>TPV{sortIndicator(aggSortKey==="tpv", aggSortDir)}</th>
-                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("category")}>Product Category{sortIndicator(aggSortKey==="category", aggSortDir)}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredAgg.map((r) => (
-                          <tr key={r.id} className="border-t">
+                          <tr key={r.id} className="border-t hover:bg-slate-50">
                             <td className="px-4 py-2 font-medium">{r.date_or_month}</td>
                             <td className="px-4 py-2">{r.pillar_name}</td>
                             <td className="px-4 py-2">{r.product}</td>
                             <td className="px-4 py-2">{r.tpt.toLocaleString("id-ID")}</td>
                             <td className="px-4 py-2">{formatRupiah(r.tpv)}</td>
-                            <td className="px-4 py-2"><StatusBadge c={r.category} /></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   <div className="flex items-center justify-between p-4">
-                    <div className="text-xs text-slate-500">Page {page} of {totalPages}</div>
+                    <div className="text-xs text-slate-500">Page {page} of {totalPages} • {filteredAgg.length} records</div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
                       <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
