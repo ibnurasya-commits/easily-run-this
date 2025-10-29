@@ -891,12 +891,21 @@ export default function PaymentsKPIDashboard() {
   const handleImportFromFile = async () => {
     setImporting(true);
     try {
-      const response = await fetch('/data/import.csv');
+      // Fetch CSV content from public folder
+      const response = await fetch('/data/merchant-data.csv');
       const csvContent = await response.text();
-      const { importCheckoutData } = await import("@/lib/importCheckoutData");
-      const result = await importCheckoutData(csvContent);
-      console.log("Import result:", result);
-      alert(`Successfully imported ${result.imported} records!`);
+      
+      console.log('Calling backend import function...');
+      
+      // Call backend edge function to import
+      const { data, error } = await supabase.functions.invoke('import-data', {
+        body: { csvContent }
+      });
+      
+      if (error) throw error;
+      
+      console.log("Import result:", data);
+      alert(`Successfully imported ${data.imported} records!`);
       await loadAll();
     } catch (error) {
       console.error("Import error:", error);
