@@ -5,7 +5,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, BarChart3, Table as TableIcon, Sparkles, RefreshCw, Users, Upload, ChevronLeft, ChevronRight } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CalendarDays, BarChart3, Table as TableIcon, Sparkles, RefreshCw, Users, Upload, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DateRange } from "react-day-picker";
 import {
@@ -13,7 +14,7 @@ import {
   Line,
   XAxis,
   YAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   CartesianGrid,
   Legend,
@@ -1097,7 +1098,8 @@ export default function PaymentsKPIDashboard() {
   const toggleProfitSort = (key: string) => { if (profitSortKey === key) setProfitSortDir(nextDir(profitSortDir)); else { setProfitSortKey(key); setProfitSortDir("asc"); } };
 
   return (
-    <div className="min-h-screen w-full bg-background p-6 lg:p-8">
+    <TooltipProvider>
+      <div className="min-h-screen w-full bg-background p-6 lg:p-8">
       {/* Hero Header with Gradient */}
       <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary to-accent p-8 shadow-lg">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE4YzAtMy4zMTQgMi42ODYtNiA2LTZzNiAyLjY4NiA2IDYtMi42ODYgNi02IDYtNi0yLjY4Ni02LTZ6TTAgMThjMC0zLjMxNCAyLjY4Ni02IDYtNnM2IDIuNjg2IDYgNi0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
@@ -1274,7 +1276,7 @@ export default function PaymentsKPIDashboard() {
                         fontSize={12}
                         tickFormatter={(value) => value.toLocaleString('id-ID')}
                       />
-                      <Tooltip 
+                      <RechartsTooltip 
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--card))', 
                           border: '1px solid hsl(var(--border))',
@@ -1329,7 +1331,7 @@ export default function PaymentsKPIDashboard() {
                         fontSize={12}
                         tickFormatter={(v) => formatRupiahBio(v)} 
                       />
-                      <Tooltip 
+                      <RechartsTooltip 
                         formatter={(v: any) => [formatRupiah(v), 'TPV']} 
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--card))', 
@@ -1367,7 +1369,7 @@ export default function PaymentsKPIDashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
                       <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                      <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
                       <Legend />
                       <Bar dataKey="mau" name="Active Users" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                     </BarChart>
@@ -1498,7 +1500,20 @@ export default function PaymentsKPIDashboard() {
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("product")}>Product{sortIndicator(merchantsSortKey==="product", merchantsSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("tpt")}>TPT{sortIndicator(merchantsSortKey==="tpt", merchantsSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("tpv")}>TPV{sortIndicator(merchantsSortKey==="tpv", merchantsSortDir)}</th>
-                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("category")}>Merchant Category{sortIndicator(merchantsSortKey==="category", merchantsSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("category")}>
+                            <span className="inline-flex items-center gap-1">
+                              Merchant Category
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Based on last month/quarter</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              {sortIndicator(merchantsSortKey==="category", merchantsSortDir)}
+                            </span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1589,7 +1604,20 @@ export default function PaymentsKPIDashboard() {
                         <tr>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("brand_id")}>Brand ID{sortIndicator(churnSortKey==="brand_id", churnSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("merchant_name")}>Merchant{sortIndicator(churnSortKey==="merchant_name", churnSortDir)}</th>
-                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("risk_category")}>Risk Category{sortIndicator(churnSortKey==="risk_category", churnSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("risk_category")}>
+                            <span className="inline-flex items-center gap-1">
+                              Risk Category
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Based on last month/quarter</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              {sortIndicator(churnSortKey==="risk_category", churnSortDir)}
+                            </span>
+                          </th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("tpt")}>TPT{sortIndicator(churnSortKey==="tpt", churnSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("action")}>Recommendation Action{sortIndicator(churnSortKey==="action", churnSortDir)}</th>
                         </tr>
@@ -1669,7 +1697,20 @@ export default function PaymentsKPIDashboard() {
                         <tr>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("brand_id")}>Brand ID{sortIndicator(profitSortKey==="brand_id", profitSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("merchant_name")}>Merchant{sortIndicator(profitSortKey==="merchant_name", profitSortDir)}</th>
-                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("potential_category")}>Potential Category{sortIndicator(profitSortKey==="potential_category", profitSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("potential_category")}>
+                            <span className="inline-flex items-center gap-1">
+                              Potential Category
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Based on last month/quarter</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              {sortIndicator(profitSortKey==="potential_category", profitSortDir)}
+                            </span>
+                          </th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("tpv")}>TPV{sortIndicator(profitSortKey==="tpv", profitSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("action")}>Recommendation Action{sortIndicator(profitSortKey==="action", profitSortDir)}</th>
                         </tr>
@@ -1725,6 +1766,7 @@ export default function PaymentsKPIDashboard() {
           <div className="animate-pulse rounded-xl bg-white px-4 py-2 text-slate-700 shadow">Loading…</div>
         </div>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
