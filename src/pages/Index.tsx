@@ -260,7 +260,8 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
     
     let query = supabase
       .from('merchant_data')
-      .select('date, tpt, tpv, brand_id');
+      .select('date, tpt, tpv, brand_id')
+      .limit(10000); // Increase limit to handle large datasets
     
     // Filter by product and pillar
     if (dbProduct) query = query.eq('product_type', dbProduct);
@@ -362,7 +363,8 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
     
     let query = supabase
       .from('merchant_data')
-      .select('date, pillar, product_type, tpt, tpv');
+      .select('date, pillar, product_type, tpt, tpv')
+      .limit(10000); // Increase limit to handle large datasets
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
@@ -467,7 +469,8 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, ran
     
     let query = supabase
       .from('merchant_data')
-      .select('date, brand_id, merchant_name, product_type, tpt, tpv');
+      .select('date, brand_id, merchant_name, product_type, tpt, tpv')
+      .limit(10000); // Increase limit to handle large datasets
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
