@@ -191,29 +191,19 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
     const lastMonthDate = new Date(lastMonth + "-01");
     const prevMonthDate = addMonths(lastMonthDate, -1);
     const prevMonth = prevMonthDate.toISOString().slice(0, 7); // e.g., "2025-08"
+    const nextMonthDate = addMonths(lastMonthDate, 1);
     
     console.log("Comparing months:", lastMonth, "vs", prevMonth);
     
-    // Fetch data for both months
+    // Fetch data for both months using date range queries (avoids invalid dates like Nov 31)
+    const prevMonthStart = prevMonth + '-01';
+    const nextMonthStart = nextMonthDate.toISOString().slice(0, 10);
+    
     let query = supabase
       .from('merchant_data')
       .select('date, tpt, tpv, brand_id')
-      .in('date', [
-        lastMonth + '-01', lastMonth + '-02', lastMonth + '-03', lastMonth + '-04', lastMonth + '-05',
-        lastMonth + '-06', lastMonth + '-07', lastMonth + '-08', lastMonth + '-09', lastMonth + '-10',
-        lastMonth + '-11', lastMonth + '-12', lastMonth + '-13', lastMonth + '-14', lastMonth + '-15',
-        lastMonth + '-16', lastMonth + '-17', lastMonth + '-18', lastMonth + '-19', lastMonth + '-20',
-        lastMonth + '-21', lastMonth + '-22', lastMonth + '-23', lastMonth + '-24', lastMonth + '-25',
-        lastMonth + '-26', lastMonth + '-27', lastMonth + '-28', lastMonth + '-29', lastMonth + '-30',
-        lastMonth + '-31',
-        prevMonth + '-01', prevMonth + '-02', prevMonth + '-03', prevMonth + '-04', prevMonth + '-05',
-        prevMonth + '-06', prevMonth + '-07', prevMonth + '-08', prevMonth + '-09', prevMonth + '-10',
-        prevMonth + '-11', prevMonth + '-12', prevMonth + '-13', prevMonth + '-14', prevMonth + '-15',
-        prevMonth + '-16', prevMonth + '-17', prevMonth + '-18', prevMonth + '-19', prevMonth + '-20',
-        prevMonth + '-21', prevMonth + '-22', prevMonth + '-23', prevMonth + '-24', prevMonth + '-25',
-        prevMonth + '-26', prevMonth + '-27', prevMonth + '-28', prevMonth + '-29', prevMonth + '-30',
-        prevMonth + '-31'
-      ]);
+      .gte('date', prevMonthStart)
+      .lt('date', nextMonthStart);
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
