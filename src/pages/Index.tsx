@@ -387,21 +387,21 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
   }
 }
 
-async function fetchMetricsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
+async function fetchMetricsTable({ product, pillar, period, date_or_month, rangeStart, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     const dbProduct = mapProductToDb(product);
     
     let query = supabase
       .from('merchant_data')
-      .select('date, pillar, product_type, tpt, tpv', { count: 'exact' });
+      .select('date, pillar, product_type, tpt, tpv');
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
     if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
     if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
     
-    const { data, error, count } = await query;
+    const { data, error } = await query;
     
     if (error) throw error;
     
@@ -438,10 +438,7 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, page 
         }))
         .sort((a, b) => a.date_or_month.localeCompare(b.date_or_month));
       
-      const start = (page - 1) * size;
-      const paginatedRows = rows.slice(start, start + size);
-      
-      return { rows: paginatedRows, total: rows.length };
+      return { rows };
     } else {
       // Group by month
       const monthMap: Record<string, { tpt: number; tpv: number; pillar: string; product: string }> = {};
@@ -473,32 +470,29 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, page 
         }))
         .sort((a, b) => a.date_or_month.localeCompare(b.date_or_month));
       
-      const start = (page - 1) * size;
-      const paginatedRows = rows.slice(start, start + size);
-      
-      return { rows: paginatedRows, total: rows.length };
+      return { rows };
     }
   } catch (error) {
     console.error("Error fetching metrics table:", error);
-    return { rows: [], total: 0 };
+    return { rows: [] };
   }
 }
 
-async function fetchMerchantsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
+async function fetchMerchantsTable({ product, pillar, period, date_or_month, rangeStart, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     const dbProduct = mapProductToDb(product);
     
     let query = supabase
       .from('merchant_data')
-      .select('date, brand_id, merchant_name, product_type, tpt, tpv', { count: 'exact' });
+      .select('date, brand_id, merchant_name, product_type, tpt, tpv');
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
     if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
     if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
     
-    const { data, error, count } = await query;
+    const { data, error } = await query;
     
     if (error) throw error;
     
@@ -533,17 +527,14 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, pag
       }))
       .sort((a, b) => a.brand_id.localeCompare(b.brand_id));
     
-    const start = (page - 1) * size;
-    const paginatedRows = rows.slice(start, start + size);
-    
-    return { rows: paginatedRows, total: rows.length };
+    return { rows };
   } catch (error) {
     console.error("Error fetching merchants table:", error);
-    return { rows: [], total: 0 };
+    return { rows: [] };
   }
 }
 
-async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page = 1, size = 8 }: any) {
+async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd }: any) {
   try {
     const dbProduct = mapProductToDb(product);
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
@@ -627,17 +618,14 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
     
     console.log("Merchant churn rows:", rows.length, "Total merchants:", merchantMap.size);
     
-    const start = (page - 1) * size;
-    const paginatedRows = rows.slice(start, start + size);
-    
-    return { rows: paginatedRows, total: rows.length };
+    return { rows };
   } catch (error) {
     console.error("Error fetching merchant churn:", error);
-    return { rows: [], total: 0 };
+    return { rows: [] };
   }
 }
 
-async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page = 1, size = 8 }: any) {
+async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd }: any) {
   try {
     const dbProduct = mapProductToDb(product);
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
@@ -713,13 +701,10 @@ async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page
       })
       .sort((a, b) => b.tpv_growth - a.tpv_growth); // Sort by highest growth first
     
-    const start = (page - 1) * size;
-    const paginatedRows = rows.slice(start, start + size);
-    
-    return { rows: paginatedRows, total: rows.length };
+    return { rows };
   } catch (error) {
     console.error("Error fetching merchant profit:", error);
-    return { rows: [], total: 0 };
+    return { rows: [] };
   }
 }
 
@@ -787,19 +772,10 @@ export default function PaymentsKPIDashboard() {
 
   const [table, setTable] = useState<any[]>([]);
   const [merchantTable, setMerchantTable] = useState<any[]>([]);
-  const [totalRows, setTotalRows] = useState(0);
-  const [totalMerchantRows, setTotalMerchantRows] = useState(0);
-  const [page, setPage] = useState(1);
-  const [merchantPage, setMerchantPage] = useState(1);
-  const pageSize = 8;
 
   const [recoTab, setRecoTab] = useState("merchantChurn");
   const [churnRows, setChurnRows] = useState<any[]>([]);
   const [profitRows, setProfitRows] = useState<any[]>([]);
-  const [churnPage, setChurnPage] = useState(1);
-  const [profitPage, setProfitPage] = useState(1);
-  const [churnTotal, setChurnTotal] = useState(0);
-  const [profitTotal, setProfitTotal] = useState(0);
 
   // NEW: Sorting and filters per view
   // Churn
@@ -864,24 +840,19 @@ export default function PaymentsKPIDashboard() {
 
   const loadAll = async () => {
     setLoading(true);
-    // Reset recommendation pagination when filters change
-    setChurnPage(1);
-    setProfitPage(1);
     try {
       console.log("Loading with rangeEnd:", rangeEnd, "product:", product, "pillar:", pillar);
       const [kpiData, { series }, tableRes, merchantRes] = await Promise.all([
         fetchKPIMetrics({ product, pillar, rangeEnd, period }),
         fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }),
-        fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize, rangeStart, rangeEnd }),
-        fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize, rangeStart, rangeEnd }),
+        fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, rangeStart, rangeEnd }),
+        fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, rangeStart, rangeEnd }),
       ]);
       console.log("KPI Data received:", kpiData);
       setKpiMetrics(kpiData);
       setSeries(series);
       setTable(tableRes.rows);
-      setTotalRows(tableRes.total);
       setMerchantTable(merchantRes.rows);
-      setTotalMerchantRows(merchantRes.total);
     } finally {
       setLoading(false);
     }
@@ -889,13 +860,11 @@ export default function PaymentsKPIDashboard() {
 
   const loadMerchantRecos = async () => {
     const [ch, pr] = await Promise.all([
-      fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page: churnPage, size: pageSize }),
-      fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page: profitPage, size: pageSize }),
+      fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd }),
+      fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd }),
     ]);
     setChurnRows(ch.rows);
-    setChurnTotal(ch.total);
     setProfitRows(pr.rows);
-    setProfitTotal(pr.total);
   };
 
   const handleImportData = async () => {
@@ -962,13 +931,8 @@ export default function PaymentsKPIDashboard() {
     }
   };
 
-  useEffect(() => { loadAll(); }, [product, period, pillar, rangeStart, rangeEnd, page, merchantPage]);
-  useEffect(() => { loadMerchantRecos(); }, [product, pillar, rangeStart, rangeEnd, churnPage, profitPage]);
-
-  const totalPages = useMemo(() => Math.ceil(totalRows / pageSize), [totalRows]);
-  const totalMerchantPages = useMemo(() => Math.ceil(totalMerchantRows / pageSize), [totalMerchantRows]);
-  const churnTotalPages = useMemo(() => Math.ceil(churnTotal / pageSize), [churnTotal]);
-  const profitTotalPages = useMemo(() => Math.ceil(profitTotal / pageSize), [profitTotal]);
+  useEffect(() => { loadAll(); }, [product, pillar, period, dateParam]);
+  useEffect(() => { if (tab === "reco") loadMerchantRecos(); }, [tab, product, pillar, rangeStart, rangeEnd]);
 
   // Derived views
   const sortedAggBase = useMemo(() => sortBy(table, aggSortKey as any, aggSortDir), [table, aggSortKey, aggSortDir]);
@@ -1293,12 +1257,8 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-between p-4">
-                    <div className="text-xs text-slate-500">Page {page} of {totalPages} • {filteredAgg.length} records</div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
-                      <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
-                    </div>
+                  <div className="flex items-center justify-end p-4">
+                    <div className="text-xs text-slate-500">{filteredAgg.length} records</div>
                   </div>
                 </CardContent>
               </Card>
@@ -1356,12 +1316,8 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-between p-4">
-                    <div className="text-xs text-slate-500">Page {merchantPage} of {totalMerchantPages}</div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={merchantPage <= 1} onClick={() => setMerchantPage((p) => Math.max(1, p - 1))}>Prev</Button>
-                      <Button variant="outline" size="sm" disabled={merchantPage >= totalMerchantPages} onClick={() => setMerchantPage((p) => Math.min(totalMerchantPages, p + 1))}>Next</Button>
-                    </div>
+                  <div className="flex items-center justify-end p-4">
+                    <div className="text-xs text-slate-500">{filteredMerchants.length} records</div>
                   </div>
                 </CardContent>
               </Card>
@@ -1429,12 +1385,8 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-between p-4">
-                    <div className="text-xs text-slate-500">Page {churnPage} of {churnTotalPages}</div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={churnPage <= 1} onClick={() => setChurnPage((p) => Math.max(1, p - 1))}>Prev</Button>
-                      <Button variant="outline" size="sm" disabled={churnPage >= churnTotalPages} onClick={() => setChurnPage((p) => Math.min(churnTotalPages, p + 1))}>Next</Button>
-                    </div>
+                  <div className="flex items-center justify-end p-4">
+                    <div className="text-xs text-slate-500">{filteredChurn.length} records</div>
                   </div>
                 </CardContent>
               </Card>
@@ -1490,12 +1442,8 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-between p-4">
-                    <div className="text-xs text-slate-500">Page {profitPage} of {profitTotalPages}</div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={profitPage <= 1} onClick={() => setProfitPage((p) => Math.max(1, p - 1))}>Prev</Button>
-                      <Button variant="outline" size="sm" disabled={profitPage >= profitTotalPages} onClick={() => setProfitPage((p) => Math.min(profitTotalPages, p + 1))}>Next</Button>
-                    </div>
+                  <div className="flex items-center justify-end p-4">
+                    <div className="text-xs text-slate-500">{filteredProfit.length} records</div>
                   </div>
                 </CardContent>
               </Card>
