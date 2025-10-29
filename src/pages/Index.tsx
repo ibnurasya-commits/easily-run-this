@@ -156,7 +156,7 @@ function pctChange(curr: number, prev: number) { if (!prev) return 0; return ((c
 async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }: any) {
   try {
     // Map pillar from UI value to DB value
-    const dbPillar = pillar === "wallets_billing" ? "wallet_billing" : pillar;
+    const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     
     let query = supabase
       .from('merchant_data')
@@ -258,7 +258,7 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
 
 async function fetchMetricsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
   try {
-    const dbPillar = pillar === "wallets_billing" ? "wallet_billing" : pillar;
+    const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     
     let query = supabase
       .from('merchant_data')
@@ -354,7 +354,7 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, page 
 
 async function fetchMerchantsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
   try {
-    const dbPillar = pillar === "wallets_billing" ? "wallet_billing" : pillar;
+    const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     
     let query = supabase
       .from('merchant_data')
