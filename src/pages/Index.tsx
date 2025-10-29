@@ -309,13 +309,18 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
       });
       
       const series = Object.entries(quarterMap)
+        .sort(([keyA], [keyB]) => {
+          // Sort quarters chronologically (Q1 2024, Q2 2024, etc.)
+          const [qA, yA] = keyA.split(' ');
+          const [qB, yB] = keyB.split(' ');
+          return yA === yB ? qA.localeCompare(qB) : yA.localeCompare(yB);
+        })
         .map(([label, values]) => ({
           label,
           tpt: Math.round(values.tpt),
           tpv: Math.round(values.tpv),
           mau: values.mau.size
         }))
-        .sort((a, b) => a.label.localeCompare(b.label))
         .slice(-points);
       
       return { series };
@@ -338,13 +343,13 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
       });
       
       const series = Object.entries(monthMap)
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
         .map(([key, values]) => ({
           label: formatMonthLabel(new Date(key + "-01")),
           tpt: Math.round(values.tpt),
           tpv: Math.round(values.tpv),
           mau: values.mau.size
         }))
-        .sort((a, b) => a.label.localeCompare(b.label))
         .slice(-points);
       
       return { series };
