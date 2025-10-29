@@ -1371,8 +1371,8 @@ export default function PaymentsKPIDashboard() {
         <TabsContent value="table">
           <Tabs defaultValue="agg">
             <TabsList className="mb-4 grid w-full grid-cols-2 bg-card shadow-sm rounded-lg p-1">
-              <TabsTrigger value="agg" className="rounded-md data-[state=inactive]:text-primary/70">Product</TabsTrigger>
-              <TabsTrigger value="merchants" className="rounded-md data-[state=inactive]:text-primary/70">Merchants per Product</TabsTrigger>
+              <TabsTrigger value="agg" className="rounded-md data-[state=active]:text-primary">Product</TabsTrigger>
+              <TabsTrigger value="merchants" className="rounded-md data-[state=active]:text-primary">Merchants per Product</TabsTrigger>
             </TabsList>
 
             {/* Product aggregation table */}
@@ -1523,8 +1523,8 @@ export default function PaymentsKPIDashboard() {
         <TabsContent value="reco">
           <Tabs value={recoTab} onValueChange={setRecoTab}>
             <TabsList className="mb-4 grid w-full grid-cols-2 bg-card shadow-sm rounded-lg p-1">
-              <TabsTrigger value="merchantChurn" className="gap-2 rounded-md data-[state=inactive]:text-primary/70"><Users className="h-4 w-4" /> Merchant · Churn</TabsTrigger>
-              <TabsTrigger value="merchantProfit" className="gap-2 rounded-md data-[state=inactive]:text-primary/70"><Users className="h-4 w-4" /> Merchant · Profit</TabsTrigger>
+              <TabsTrigger value="merchantChurn" className="gap-2 rounded-md data-[state=active]:text-primary"><Users className="h-4 w-4" /> Merchant · Churn</TabsTrigger>
+              <TabsTrigger value="merchantProfit" className="gap-2 rounded-md data-[state=active]:text-primary"><Users className="h-4 w-4" /> Merchant · Profit</TabsTrigger>
             </TabsList>
 
             {/* Merchant churn */}
