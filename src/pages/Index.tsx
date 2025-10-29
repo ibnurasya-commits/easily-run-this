@@ -177,36 +177,24 @@ async function fetchKPIMetrics({ product, pillar, rangeStart, rangeEnd, period }
     console.log("Input params:", { product, pillar, rangeStart, rangeEnd, period });
     console.log("Mapped to DB:", { dbProduct, dbPillar });
     
-    // Use full date range from rangeStart to rangeEnd
-    const startDate = rangeStart || rangeEnd;
+    // Always compare the last month (rangeEnd) vs the previous month
     const endDate = rangeEnd;
-    console.log("Date range for current period:", { startDate, endDate });
-    
-    // Calculate comparison period (same duration, shifted back)
-    const startDateObj = new Date(startDate + "-01");
     const endDateObj = new Date(endDate + "-01");
-    const monthsDiff = (endDateObj.getFullYear() - startDateObj.getFullYear()) * 12 + 
-                        (endDateObj.getMonth() - startDateObj.getMonth()) + 1;
+    const compareMonth = addMonths(endDateObj, -1).toISOString().slice(0, 7);
     
-    const compareStartDate = addMonths(startDateObj, -monthsDiff);
-    const compareEndDate = addMonths(endDateObj, -monthsDiff);
-    const compareStart = compareStartDate.toISOString().slice(0, 7);
-    const compareEnd = compareEndDate.toISOString().slice(0, 7);
+    console.log(`KPI comparison: ${endDate} vs ${compareMonth} (last month in range vs previous month)`);
     
-    console.log(`Comparing periods: Current [${startDate} to ${endDate}] vs Previous [${compareStart} to ${compareEnd}]`);
+    // Fetch data for both months
+    const compareMonthStart = compareMonth + '-01';
+    const nextMonthStart = addMonths(endDateObj, 1).toISOString().slice(0, 10);
     
-    // Fetch data for both periods
-    const currentPeriodStart = startDate + '-01';
-    const nextMonthAfterEnd = addMonths(endDateObj, 1).toISOString().slice(0, 10);
-    const comparePeriodStart = compareStart + '-01';
-    const nextMonthAfterCompare = addMonths(compareEndDate, 1).toISOString().slice(0, 10);
-    
-    console.log("Query dates:", { currentPeriodStart, nextMonthAfterEnd, comparePeriodStart, nextMonthAfterCompare });
+    console.log("Query dates:", { compareMonthStart, endDate, nextMonthStart });
     
     let query = supabase
       .from('merchant_data')
       .select('date, tpt, tpv, brand_id')
-      .or(`and(date.gte.${currentPeriodStart},date.lt.${nextMonthAfterEnd}),and(date.gte.${comparePeriodStart},date.lt.${nextMonthAfterCompare})`);
+      .gte('date', compareMonthStart)
+      .lt('date', nextMonthStart);
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
@@ -217,24 +205,21 @@ async function fetchKPIMetrics({ product, pillar, rangeStart, rangeEnd, period }
     console.log("Query returned rows:", data?.length);
     console.log("Filters applied:", { dbProduct: !!dbProduct, dbPillar: !!dbPillar });
     
-    // Aggregate by period (current vs previous)
-    let currentTPT = 0, currentTPV = 0;
+    // Aggregate by month (endDate vs compareMonth)
+    let endTPT = 0, endTPV = 0;
     let compareTPT = 0, compareTPV = 0;
-    let currentCount = 0, compareCount = 0;
+    let endCount = 0, compareCount = 0;
     
     data?.forEach(row => {
       const month = row.date.slice(0, 7);
       const tpt = Number(row.tpt) || 0;
       const tpv = Number(row.tpv) || 0;
       
-      // Current period: rangeStart to rangeEnd
-      if (month >= startDate && month <= endDate) {
-        currentTPT += tpt;
-        currentTPV += tpv;
-        currentCount++;
-      }
-      // Compare period: compareStart to compareEnd
-      if (month >= compareStart && month <= compareEnd) {
+      if (month === endDate) {
+        endTPT += tpt;
+        endTPV += tpv;
+        endCount++;
+      } else if (month === compareMonth) {
         compareTPT += tpt;
         compareTPV += tpv;
         compareCount++;
@@ -242,22 +227,20 @@ async function fetchKPIMetrics({ product, pillar, rangeStart, rangeEnd, period }
     });
     
     console.log("Aggregation results:");
-    console.log(`  Current period (${startDate} to ${endDate}): TPT=${currentTPT}, TPV=${currentTPV}, rows=${currentCount}`);
-    console.log(`  Compare period (${compareStart} to ${compareEnd}): TPT=${compareTPT}, TPV=${compareTPV}, rows=${compareCount}`);
+    console.log(`  End month (${endDate}): TPT=${endTPT}, TPV=${endTPV}, rows=${endCount}`);
+    console.log(`  Compare month (${compareMonth}): TPT=${compareTPT}, TPV=${compareTPV}, rows=${compareCount}`);
     
-    const tptChange = pctChange(currentTPT, compareTPT);
-    const tpvChange = pctChange(currentTPV, compareTPV);
-    const category = deriveCategory(currentTPT, currentTPV, compareTPT, compareTPV);
-    
-    const changeLabel = monthsDiff === 1 ? "MoM" : `vs Prev ${monthsDiff}M`;
+    const tptChange = pctChange(endTPT, compareTPT);
+    const tpvChange = pctChange(endTPV, compareTPV);
+    const category = deriveCategory(endTPT, endTPV, compareTPT, compareTPV);
     
     const result = {
-      tpt: Math.round(currentTPT),
-      tpv: Math.round(currentTPV),
+      tpt: Math.round(endTPT),
+      tpv: Math.round(endTPV),
       tptChange,
       tpvChange,
       category,
-      changeLabel
+      changeLabel: "MoM"
     };
     
     console.log("fetchKPIMetrics returning:", result);
