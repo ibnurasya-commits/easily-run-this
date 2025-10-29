@@ -168,21 +168,23 @@ function mapProductToDb(product: string): string {
   return productMap[product] || product;
 }
 
-async function fetchKPIMetrics({ product, pillar, rangeEnd, period }: any) {
+async function fetchKPIMetrics({ product, pillar, rangeStart, rangeEnd, period }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     const dbProduct = mapProductToDb(product);
     
     console.log("=== fetchKPIMetrics DEBUG ===");
-    console.log("Input params:", { product, pillar, rangeEnd, period });
+    console.log("Input params:", { product, pillar, rangeStart, rangeEnd, period });
     console.log("Mapped to DB:", { dbProduct, dbPillar });
     
-    // Use rangeEnd as the end date
+    // Use rangeStart and rangeEnd for the selected period
+    let startDate: string;
     let endDate: string;
     
-    if (rangeEnd) {
-      endDate = rangeEnd; // e.g., "2025-09"
-      console.log("Using rangeEnd as endDate:", endDate);
+    if (rangeStart && rangeEnd) {
+      startDate = rangeStart;
+      endDate = rangeEnd;
+      console.log("Using date range:", { startDate, endDate });
     } else {
       // Fallback: get the most recent month in the data
       let lastMonthQuery = supabase
@@ -201,39 +203,61 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd, period }: any) {
         return { tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle", changeLabel: "MoM" };
       }
       
-      endDate = lastMonthData[0].date.slice(0, 7); // e.g., "2025-09"
-      console.log("Found endDate from DB:", endDate);
+      endDate = lastMonthData[0].date.slice(0, 7);
+      startDate = endDate; // Use same month for start and end
+      console.log("Found date from DB:", { startDate, endDate });
     }
     
-    // Calculate comparison period based on period filter
+    // Calculate the number of months in the selected range
+    const startDateObj = new Date(startDate + "-01");
     const endDateObj = new Date(endDate + "-01");
-    let compareDate: Date;
+    const monthsInRange = Math.abs(
+      (endDateObj.getFullYear() - startDateObj.getFullYear()) * 12 +
+      (endDateObj.getMonth() - startDateObj.getMonth())
+    ) + 1;
+    
+    console.log("Months in selected range:", monthsInRange);
+    
+    // Calculate comparison period based on the selected range length
     let changeLabel: string;
+    let compareStartDate: Date;
+    let compareEndDate: Date;
     
     if (period === "quarter") {
-      // Compare with quarter before (3 months)
-      compareDate = addMonths(endDateObj, -3);
+      // For quarter, compare with the same number of months, but shifted back by that amount
+      compareEndDate = addMonths(startDateObj, -1);
+      compareStartDate = addMonths(compareEndDate, -(monthsInRange - 1));
       changeLabel = "QoQ";
     } else {
-      // Compare with month before
-      compareDate = addMonths(endDateObj, -1);
+      // For month, compare with the same number of months back
+      compareEndDate = addMonths(startDateObj, -1);
+      compareStartDate = addMonths(compareEndDate, -(monthsInRange - 1));
       changeLabel = "MoM";
     }
     
-    const compareMonth = compareDate.toISOString().slice(0, 7);
-    const nextMonthDate = addMonths(endDateObj, 1);
+    const compareStart = compareStartDate.toISOString().slice(0, 7);
+    const compareEnd = compareEndDate.toISOString().slice(0, 7);
     
-    console.log(`Comparing periods (${changeLabel}):`, endDate, "vs", compareMonth);
+    // Calculate the next month after end date for query boundary
+    const nextMonthDate = addMonths(endDateObj, 1);
+    const nextMonthAfterCompare = addMonths(compareEndDate, 1);
+    
+    console.log(`Comparing periods (${changeLabel}):`);
+    console.log(`  Selected: ${startDate} to ${endDate} (${monthsInRange} months)`);
+    console.log(`  Compare: ${compareStart} to ${compareEnd}`);
     
     // Fetch data for both periods using date range queries
-    const compareMonthStart = compareMonth + '-01';
-    const nextMonthStart = nextMonthDate.toISOString().slice(0, 10);
+    const selectedPeriodStart = startDate + '-01';
+    const selectedPeriodEnd = nextMonthDate.toISOString().slice(0, 10);
+    const comparePeriodStart = compareStart + '-01';
+    const comparePeriodEnd = nextMonthAfterCompare.toISOString().slice(0, 10);
     
+    // Fetch both periods in one query
     let query = supabase
       .from('merchant_data')
       .select('date, tpt, tpv, brand_id')
-      .gte('date', compareMonthStart)
-      .lt('date', nextMonthStart);
+      .gte('date', comparePeriodStart)
+      .lt('date', selectedPeriodEnd);
     
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
@@ -242,24 +266,28 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd, period }: any) {
     if (error) throw error;
     
     console.log("Query returned rows:", data?.length);
-    console.log("Date range:", { compareMonthStart, endDate, nextMonthStart });
+    console.log("Selected period:", { selectedPeriodStart, selectedPeriodEnd });
+    console.log("Compare period:", { comparePeriodStart, comparePeriodEnd });
     console.log("Filters applied:", { dbProduct: !!dbProduct, dbPillar: !!dbPillar });
     
-    // Aggregate by period
-    let endTPT = 0, endTPV = 0;
+    // Aggregate data for selected period and compare period
+    let selectedTPT = 0, selectedTPV = 0;
     let compareTPT = 0, compareTPV = 0;
-    let endCount = 0, compareCount = 0;
+    let selectedCount = 0, compareCount = 0;
     
     data?.forEach(row => {
-      const month = row.date.slice(0, 7);
+      const rowDate = row.date;
       const tpt = Number(row.tpt) || 0;
       const tpv = Number(row.tpv) || 0;
       
-      if (month === endDate) {
-        endTPT += tpt;
-        endTPV += tpv;
-        endCount++;
-      } else if (month === compareMonth) {
+      // Check if row is in selected period
+      if (rowDate >= selectedPeriodStart && rowDate < selectedPeriodEnd) {
+        selectedTPT += tpt;
+        selectedTPV += tpv;
+        selectedCount++;
+      }
+      // Check if row is in compare period
+      else if (rowDate >= comparePeriodStart && rowDate < comparePeriodEnd) {
         compareTPT += tpt;
         compareTPV += tpv;
         compareCount++;
@@ -267,16 +295,16 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd, period }: any) {
     });
     
     console.log("Aggregation results:");
-    console.log(`  End period (${endDate}): TPT=${endTPT}, TPV=${endTPV}, rows=${endCount}`);
-    console.log(`  Compare period (${compareMonth}): TPT=${compareTPT}, TPV=${compareTPV}, rows=${compareCount}`);
+    console.log(`  Selected period (${startDate} to ${endDate}): TPT=${selectedTPT}, TPV=${selectedTPV}, rows=${selectedCount}`);
+    console.log(`  Compare period (${compareStart} to ${compareEnd}): TPT=${compareTPT}, TPV=${compareTPV}, rows=${compareCount}`);
     
-    const tptChange = pctChange(endTPT, compareTPT);
-    const tpvChange = pctChange(endTPV, compareTPV);
-    const category = deriveCategory(endTPT, endTPV, compareTPT, compareTPV);
+    const tptChange = pctChange(selectedTPT, compareTPT);
+    const tpvChange = pctChange(selectedTPV, compareTPV);
+    const category = deriveCategory(selectedTPT, selectedTPV, compareTPT, compareTPV);
     
     const result = {
-      tpt: Math.round(endTPT),
-      tpv: Math.round(endTPV),
+      tpt: Math.round(selectedTPT),
+      tpv: Math.round(selectedTPV),
       tptChange,
       tpvChange,
       category,
@@ -870,7 +898,7 @@ export default function PaymentsKPIDashboard() {
     try {
       console.log("Loading with rangeEnd:", rangeEnd, "product:", product, "pillar:", pillar);
       const [kpiData, { series }, tableRes, merchantRes] = await Promise.all([
-        fetchKPIMetrics({ product, pillar, rangeEnd, period }),
+        fetchKPIMetrics({ product, pillar, rangeStart, rangeEnd, period }),
         fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }),
         fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize, rangeStart, rangeEnd }),
         fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize, rangeStart, rangeEnd }),
