@@ -915,24 +915,31 @@ export default function PaymentsKPIDashboard() {
   };
 
   const handleImportFromFile = async () => {
+    const confirmed = window.confirm(
+      'This will DELETE all existing data and re-import from the CSV file with deduplication. Continue?'
+    );
+    
+    if (!confirmed) return;
+    
     setImporting(true);
     try {
       // Fetch CSV content from public folder
       const response = await fetch('/data/merchant-data.csv');
       const csvContent = await response.text();
       
-      console.log('Calling backend import function...');
+      console.log('Calling backend import function with clearExisting=true...');
       
-      // Call backend edge function to import
+      // Call backend edge function to import with clear flag
       const { data, error } = await supabase.functions.invoke('import-data', {
-        body: { csvContent }
+        body: { csvContent, clearExisting: true }
       });
       
       if (error) throw error;
       
       console.log("Import result:", data);
-      alert(`Successfully imported ${data.imported} records!`);
+      alert(`Successfully cleared existing data and imported ${data.imported} unique records! (Skipped ${data.duplicatesSkipped} duplicates)`);
       await loadAll();
+      await loadMerchantRecos();
     } catch (error) {
       console.error("Import error:", error);
       alert("Failed to import data. Check console for details.");

@@ -26,9 +26,24 @@ function parseMonthToDate(monthStr: string): string {
   return `${fullYear}-${monthMap[monthLower]}-01`;
 }
 
-async function importCheckoutData(csvContent: string, supabase: any) {
+async function importCheckoutData(csvContent: string, supabase: any, clearExisting: boolean = false) {
   try {
-    console.log('Starting CSV import...');
+    console.log('Starting CSV import with deduplication...');
+    
+    // Clear existing data if requested
+    if (clearExisting) {
+      console.log('Clearing all existing merchant_data...');
+      const { error: deleteError } = await supabase
+        .from('merchant_data')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+      
+      if (deleteError) {
+        console.error('Error clearing data:', deleteError);
+        throw deleteError;
+      }
+      console.log('Existing data cleared successfully');
+    }
     
     // Remove BOM if present
     const cleanContent = csvContent.replace(/^\uFEFF/, '');
@@ -38,6 +53,9 @@ async function importCheckoutData(csvContent: string, supabase: any) {
     console.log(`Processing ${lines.length - 1} rows...`);
     
     const records = [];
+    const seenKeys = new Set<string>(); // For deduplication
+    let duplicatesSkipped = 0;
+    
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(';');
       
@@ -52,6 +70,18 @@ async function importCheckoutData(csvContent: string, supabase: any) {
       // Skip if essential fields are missing
       if (!row.pillar || !row.brand_id) continue;
       
+      // Parse date
+      const date = parseMonthToDate(row.month);
+      
+      // Create unique key for deduplication
+      const uniqueKey = `${row.pillar}-${row.brand_id}-${row.merchant_name}-${row.product_type}-${date}`;
+      
+      if (seenKeys.has(uniqueKey)) {
+        duplicatesSkipped++;
+        continue; // Skip duplicate
+      }
+      seenKeys.add(uniqueKey);
+      
       // Clean TPV value - remove commas
       const tpvValue = row.tpv.replace(/,/g, '');
       
@@ -62,11 +92,11 @@ async function importCheckoutData(csvContent: string, supabase: any) {
         merchant_name: row.merchant_name,
         tpt: parseFloat(row.tpt) || 0,
         tpv: parseFloat(tpvValue) || 0,
-        date: parseMonthToDate(row.month)
+        date
       });
     }
     
-    console.log(`Parsed ${records.length} valid records`);
+    console.log(`Parsed ${records.length} unique records (skipped ${duplicatesSkipped} duplicates)`);
     
     // Insert in batches to avoid timeout
     const batchSize = 500;
@@ -92,7 +122,8 @@ async function importCheckoutData(csvContent: string, supabase: any) {
     
     return {
       imported: records.length,
-      skipped: 0,
+      duplicatesSkipped,
+      cleared: clearExisting,
       errors: 0,
       message: "Data imported successfully"
     };
@@ -117,7 +148,7 @@ Deno.serve(async (req) => {
     );
 
     // Get CSV content from request body
-    const { csvContent } = await req.json();
+    const { csvContent, clearExisting = false } = await req.json();
     
     if (!csvContent) {
       return new Response(
@@ -126,9 +157,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('CSV content received, starting import...');
+    console.log(`CSV content received, starting import... (clearExisting: ${clearExisting})`);
     
-    const result = await importCheckoutData(csvContent, supabase);
+    const result = await importCheckoutData(csvContent, supabase, clearExisting);
     
     console.log('Import completed successfully:', result);
 
