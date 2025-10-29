@@ -1157,8 +1157,8 @@ export default function PaymentsKPIDashboard() {
 
         {/* ANALYTICS TAB */}
         <TabsContent value="analytics">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
-            <Card className="lg:col-span-4 border-none shadow-md">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="border-none shadow-md">
               <CardContent className="p-6">
                 <div className="mb-4 flex items-center gap-2">
                   <div className="rounded-lg bg-primary/10 p-1.5">
@@ -1181,7 +1181,7 @@ export default function PaymentsKPIDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-3 border-none shadow-md">
+            <Card className="border-none shadow-md">
               <CardContent className="p-6">
                 <div className="mb-4 flex items-center gap-2">
                   <div className="rounded-lg bg-accent/10 p-1.5">
@@ -1204,7 +1204,7 @@ export default function PaymentsKPIDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-7 border-none shadow-md">
+            <Card className="lg:col-span-2 border-none shadow-md">
               <CardContent className="p-6">
                 <div className="mb-4 flex items-center gap-2">
                   <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/30 p-1.5">
