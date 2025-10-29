@@ -268,7 +268,11 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
     
     // Filter by date range
     if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
-    if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
+    if (rangeEnd) {
+      const endDateObj = new Date(rangeEnd + "-01");
+      const nextMonthStart = addMonths(endDateObj, 1).toISOString().slice(0, 10);
+      query = query.lt('date', nextMonthStart);
+    }
     
     const { data, error } = await query;
     
@@ -359,7 +363,11 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
     if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
-    if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
+    if (rangeEnd) {
+      const endDateObj = new Date(rangeEnd + "-01");
+      const nextMonthStart = addMonths(endDateObj, 1).toISOString().slice(0, 10);
+      query = query.lt('date', nextMonthStart);
+    }
     
     const { data, error } = await query;
     
@@ -450,7 +458,11 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, ran
     if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
     if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
-    if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
+    if (rangeEnd) {
+      const endDateObj = new Date(rangeEnd + "-01");
+      const nextMonthStart = addMonths(endDateObj, 1).toISOString().slice(0, 10);
+      query = query.lt('date', nextMonthStart);
+    }
     
     const { data, error } = await query;
     
