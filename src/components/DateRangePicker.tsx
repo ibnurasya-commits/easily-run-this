@@ -36,11 +36,16 @@ export function DateRangePicker({
     date?.to ? format(date.to, "yyyy-MM") : ""
   );
 
-  // Generate months from 2024-01 to 2026-12
+  // Generate months from 2024-01 to current month
   const months = React.useMemo(() => {
     const result: string[] = [];
-    for (let year = 2024; year <= 2026; year++) {
-      for (let month = 1; month <= 12; month++) {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // getMonth() is 0-indexed
+    
+    for (let year = 2024; year <= currentYear; year++) {
+      const maxMonth = year === currentYear ? currentMonth : 12;
+      for (let month = 1; month <= maxMonth; month++) {
         result.push(`${year}-${String(month).padStart(2, '0')}`);
       }
     }
@@ -90,12 +95,12 @@ export function DateRangePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-4" align="start">
-          <div className="space-y-4">
+          <div className="flex gap-4 items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium">Start Month</label>
               <Select value={startMonth} onValueChange={handleStartMonthChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select start month" />
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Start month" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[200px]">
                   {months.map((month) => (
@@ -109,8 +114,8 @@ export function DateRangePicker({
             <div className="space-y-2">
               <label className="text-sm font-medium">End Month</label>
               <Select value={endMonth} onValueChange={handleEndMonthChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select end month" />
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="End month" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[200px]">
                   {months.map((month) => (
