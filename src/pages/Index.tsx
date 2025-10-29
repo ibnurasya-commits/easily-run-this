@@ -1450,7 +1450,7 @@ export default function PaymentsKPIDashboard() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-600">Merchant Category:</span>
                       <Select value={merchantsCategory} onValueChange={setMerchantsCategory}>
-                        <SelectTrigger className="w-48"><SelectValue placeholder="All" /></SelectTrigger>
+                        <SelectTrigger className="w-48 opacity-60"><SelectValue placeholder="All" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All</SelectItem>
                           <SelectItem value="performing">Performing</SelectItem>
@@ -1542,7 +1542,7 @@ export default function PaymentsKPIDashboard() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-600">Risk Category:</span>
                       <Select value={churnRisk} onValueChange={setChurnRisk}>
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-40 opacity-60">
                           <SelectValue placeholder="All" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1624,7 +1624,7 @@ export default function PaymentsKPIDashboard() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-600">Potential Category:</span>
                       <Select value={profitActionCat} onValueChange={setProfitActionCat}>
-                        <SelectTrigger className="w-44"><SelectValue placeholder="All" /></SelectTrigger>
+                        <SelectTrigger className="w-44 opacity-60"><SelectValue placeholder="All" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All</SelectItem>
                           <SelectItem value="low">Low</SelectItem>
