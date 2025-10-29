@@ -929,7 +929,7 @@ export default function PaymentsKPIDashboard() {
   };
 
   useEffect(() => { loadAll(); }, [product, period, pillar, rangeStart, rangeEnd, page, merchantPage]);
-  useEffect(() => { loadMerchantRecos(); }, [product, churnPage, profitPage]);
+  useEffect(() => { loadMerchantRecos(); }, [product, pillar, rangeStart, rangeEnd, churnPage, profitPage]);
 
   const totalPages = useMemo(() => Math.ceil(totalRows / pageSize), [totalRows]);
   const totalMerchantPages = useMemo(() => Math.ceil(totalMerchantRows / pageSize), [totalMerchantRows]);
