@@ -51,7 +51,10 @@ export const CHURN_CONFIG: Record<string, { horizon_days: number; bands: { high:
   sub_account: { horizon_days: 30, bands: { high: 0.7, medium: 0.4 } },
 };
 
-export function deriveCategory(tpt: number, tpv: number, prevTpt?: number, prevTpv?: number): "performing" | "declining_frequency" | "value_drop" | "critical" {
+export function deriveCategory(tpt: number, tpv: number, prevTpt?: number, prevTpv?: number): "performing" | "declining_frequency" | "value_drop" | "critical" | "idle" {
+  // Idle: No activity in current period
+  if (tpt === 0 && tpv === 0) return "idle";
+  
   // Calculate changes
   const tptChange = prevTpt ? ((tpt - prevTpt) / prevTpt) * 100 : 0;
   const tpvChange = prevTpv ? ((tpv - prevTpv) / prevTpv) * 100 : 0;
@@ -764,13 +767,15 @@ function StatusBadge({ c }: { c: string }) {
     performing: "bg-emerald-100 text-emerald-700", 
     declining_frequency: "bg-amber-100 text-amber-700", 
     value_drop: "bg-orange-100 text-orange-700",
-    critical: "bg-rose-100 text-rose-700" 
+    critical: "bg-rose-100 text-rose-700",
+    idle: "bg-slate-100 text-slate-600"
   };
   const labelMap: any = {
     performing: "Performing",
     declining_frequency: "Declining Frequency",
     value_drop: "Value Drop",
-    critical: "Critical"
+    critical: "Critical",
+    idle: "Idle"
   };
   return <Badge className={`rounded-xl px-3 ${map[c] || ""}`}>{labelMap[c] || c}</Badge>;
 }
@@ -1151,7 +1156,8 @@ export default function PaymentsKPIDashboard() {
                 performing: "text-emerald-600", 
                 declining_frequency: "text-amber-600", 
                 value_drop: "text-orange-600",
-                critical: "text-rose-600" 
+                critical: "text-rose-600",
+                idle: "text-slate-600"
               };
               const color = colorMap[kpiMetrics.category] || "text-foreground";
               return (
