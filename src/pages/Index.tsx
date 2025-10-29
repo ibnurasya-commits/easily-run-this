@@ -20,6 +20,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Payments KPI Dashboard – Frontend (React)
@@ -153,74 +154,260 @@ function addQuarters(d: Date, delta: number) { const nd = new Date(d); nd.setMon
 function pctChange(curr: number, prev: number) { if (!prev) return 0; return ((curr-prev)/prev)*100; }
 
 async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }: any) {
-  await wait(120);
-  const points = period === "quarter" ? 4 : 6;
-  const anchor = parseAnchorDate(period, rangeEnd, rangeStart);
-  const series = Array.from({ length: points }).map((_, i) => {
-    const idx = points - 1 - i;
-    let d: Date, label: string;
-    if (period === "quarter") { d = addQuarters(anchor, -idx); label = formatQuarterLabel(d); }
-    else { d = addMonths(anchor, -idx); label = formatMonthLabel(d); }
-    const tpt = Math.round(50 + Math.random()*900);
-    const tpv = Math.round(5_000_000 + Math.random()*95_000_000);
-    const mau = Math.round(100 + Math.random()*500); // Monthly Active Users
-    return { label, tpt, tpv, mau };
-  });
-  const totals = series.reduce((acc, r) => ({ tpt: acc.tpt + r.tpt, tpv: acc.tpv + r.tpv }), { tpt: 0, tpv: 0 });
-  const lastIdx = series.length - 1;
-  const category = deriveCategory(
-    series[lastIdx]?.tpt || 0,
-    series[lastIdx]?.tpv || 0,
-    series[lastIdx - 1]?.tpt || 0,
-    series[lastIdx - 1]?.tpv || 0
-  );
-  return { series, totals, category };
+  try {
+    // Map pillar from UI value to DB value
+    const dbPillar = pillar === "wallets_billing" ? "wallet_billing" : pillar;
+    
+    let query = supabase
+      .from('merchant_data')
+      .select('date, tpt, tpv, merchant_name');
+    
+    // Filter by product and pillar
+    if (product) query = query.eq('product_type', product);
+    if (dbPillar) query = query.eq('pillar', dbPillar);
+    
+    // Filter by date range
+    if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
+    if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    
+    const points = period === "quarter" ? 4 : 6;
+    
+    if (period === "quarter") {
+      // Aggregate by quarter
+      const quarterMap: Record<string, { tpt: number; tpv: number; mau: Set<string> }> = {};
+      
+      data?.forEach(row => {
+        const date = new Date(row.date);
+        const q = Math.floor(date.getMonth() / 3) + 1;
+        const key = `Q${q} ${date.getFullYear()}`;
+        
+        if (!quarterMap[key]) {
+          quarterMap[key] = { tpt: 0, tpv: 0, mau: new Set() };
+        }
+        quarterMap[key].tpt += Number(row.tpt) || 0;
+        quarterMap[key].tpv += Number(row.tpv) || 0;
+        if (row.merchant_name) quarterMap[key].mau.add(row.merchant_name);
+      });
+      
+      const series = Object.entries(quarterMap)
+        .map(([label, values]) => ({
+          label,
+          tpt: Math.round(values.tpt),
+          tpv: Math.round(values.tpv),
+          mau: values.mau.size
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .slice(-points);
+      
+      const totals = series.reduce((acc, r) => ({ tpt: acc.tpt + r.tpt, tpv: acc.tpv + r.tpv }), { tpt: 0, tpv: 0 });
+      const lastIdx = series.length - 1;
+      const category = deriveCategory(
+        series[lastIdx]?.tpt || 0,
+        series[lastIdx]?.tpv || 0,
+        series[lastIdx - 1]?.tpt || 0,
+        series[lastIdx - 1]?.tpv || 0
+      );
+      
+      return { series, totals, category };
+    } else {
+      // Aggregate by month
+      const monthMap: Record<string, { tpt: number; tpv: number; mau: Set<string> }> = {};
+      
+      data?.forEach(row => {
+        const date = new Date(row.date);
+        const key = date.toISOString().slice(0, 7);
+        
+        if (!monthMap[key]) {
+          monthMap[key] = { tpt: 0, tpv: 0, mau: new Set() };
+        }
+        monthMap[key].tpt += Number(row.tpt) || 0;
+        monthMap[key].tpv += Number(row.tpv) || 0;
+        if (row.merchant_name) monthMap[key].mau.add(row.merchant_name);
+      });
+      
+      const series = Object.entries(monthMap)
+        .map(([key, values]) => ({
+          label: formatMonthLabel(new Date(key + "-01")),
+          tpt: Math.round(values.tpt),
+          tpv: Math.round(values.tpv),
+          mau: values.mau.size
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .slice(-points);
+      
+      const totals = series.reduce((acc, r) => ({ tpt: acc.tpt + r.tpt, tpv: acc.tpv + r.tpv }), { tpt: 0, tpv: 0 });
+      const lastIdx = series.length - 1;
+      const category = deriveCategory(
+        series[lastIdx]?.tpt || 0,
+        series[lastIdx]?.tpv || 0,
+        series[lastIdx - 1]?.tpt || 0,
+        series[lastIdx - 1]?.tpv || 0
+      );
+      
+      return { series, totals, category };
+    }
+  } catch (error) {
+    console.error("Error fetching metrics series:", error);
+    return { series: [], totals: { tpt: 0, tpv: 0 }, category: "idle" };
+  }
 }
 
-async function fetchMetricsTable({ product, pillar, period, date_or_month, page = 1, size = 10 }: any) {
-  await wait(120);
-  const rows = Array.from({ length: size }).map((_, idx) => {
-    const i = (page - 1) * size + idx + 1;
-    const tpt = Math.round(10 + Math.random() * 500);
-    const tpv = Math.round(500_000 + Math.random() * 20_000_000);
-    const prevTpt = Math.round(10 + Math.random() * 500);
-    const prevTpv = Math.round(500_000 + Math.random() * 20_000_000);
-    const category = deriveCategory(tpt, tpv, prevTpt, prevTpv);
-    return {
-      id: `${product}-${pillar}-${period}-${i}`,
-      date_or_month: period === "quarter" ? `Q${((i - 1) % 4) + 1} 2025` : `2025-${String(((i % 12) || 10)).padStart(2, "0")}`,
-      pillar_name: PILLARS.find((a) => a.key === pillar)?.label || pillar,
-      product: PRODUCTS.find((p) => p.key === product)?.label || product,
-      tpt,
-      tpv,
-      category,
-    };
-  });
-  return { rows, total: 120 };
+async function fetchMetricsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
+  try {
+    const dbPillar = pillar === "wallets_billing" ? "wallet_billing" : pillar;
+    
+    let query = supabase
+      .from('merchant_data')
+      .select('date, pillar, product_type, tpt, tpv', { count: 'exact' });
+    
+    if (product) query = query.eq('product_type', product);
+    if (dbPillar) query = query.eq('pillar', dbPillar);
+    if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
+    if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
+    
+    const { data, error, count } = await query;
+    
+    if (error) throw error;
+    
+    if (period === "quarter") {
+      // Group by quarter
+      const quarterMap: Record<string, { tpt: number; tpv: number; pillar: string; product: string }> = {};
+      
+      data?.forEach(row => {
+        const date = new Date(row.date);
+        const q = Math.floor(date.getMonth() / 3) + 1;
+        const key = `Q${q} ${date.getFullYear()}`;
+        
+        if (!quarterMap[key]) {
+          quarterMap[key] = {
+            tpt: 0,
+            tpv: 0,
+            pillar: row.pillar,
+            product: row.product_type
+          };
+        }
+        quarterMap[key].tpt += Number(row.tpt) || 0;
+        quarterMap[key].tpv += Number(row.tpv) || 0;
+      });
+      
+      const rows = Object.entries(quarterMap)
+        .map(([dateLabel, values]) => ({
+          id: `${values.product}-${values.pillar}-${dateLabel}`,
+          date_or_month: dateLabel,
+          pillar_name: PILLARS.find((p) => p.key === values.pillar || (p.key === "wallets_billing" && values.pillar === "wallet_billing"))?.label || values.pillar,
+          product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
+          tpt: Math.round(values.tpt),
+          tpv: Math.round(values.tpv),
+          category: "performing" as const
+        }))
+        .sort((a, b) => a.date_or_month.localeCompare(b.date_or_month));
+      
+      const start = (page - 1) * size;
+      const paginatedRows = rows.slice(start, start + size);
+      
+      return { rows: paginatedRows, total: rows.length };
+    } else {
+      // Group by month
+      const monthMap: Record<string, { tpt: number; tpv: number; pillar: string; product: string }> = {};
+      
+      data?.forEach(row => {
+        const key = row.date.slice(0, 7);
+        
+        if (!monthMap[key]) {
+          monthMap[key] = {
+            tpt: 0,
+            tpv: 0,
+            pillar: row.pillar,
+            product: row.product_type
+          };
+        }
+        monthMap[key].tpt += Number(row.tpt) || 0;
+        monthMap[key].tpv += Number(row.tpv) || 0;
+      });
+      
+      const rows = Object.entries(monthMap)
+        .map(([dateKey, values]) => ({
+          id: `${values.product}-${values.pillar}-${dateKey}`,
+          date_or_month: dateKey,
+          pillar_name: PILLARS.find((p) => p.key === values.pillar || (p.key === "wallets_billing" && values.pillar === "wallet_billing"))?.label || values.pillar,
+          product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
+          tpt: Math.round(values.tpt),
+          tpv: Math.round(values.tpv),
+          category: "performing" as const
+        }))
+        .sort((a, b) => a.date_or_month.localeCompare(b.date_or_month));
+      
+      const start = (page - 1) * size;
+      const paginatedRows = rows.slice(start, start + size);
+      
+      return { rows: paginatedRows, total: rows.length };
+    }
+  } catch (error) {
+    console.error("Error fetching metrics table:", error);
+    return { rows: [], total: 0 };
+  }
 }
 
-async function fetchMerchantsTable({ product, pillar, period, date_or_month, page = 1, size = 10 }: any) {
-  await wait(120);
-  const merchants = ["Alfa Mart Bogor","R&B Store","Semeton Hebat","Klik Bazar","Love Bali","DOKU Wallet Mall","PMM Outlet","Transfer Svc Kios"];
-  const rows = Array.from({ length: size }).map((_, idx) => {
-    const name = merchants[(idx + page) % merchants.length];
-    const tpt = Math.round(10 + Math.random() * 400);
-    const tpv = Math.round(300_000 + Math.random() * 15_000_000);
-    const prevTpt = Math.round(10 + Math.random() * 400);
-    const prevTpv = Math.round(300_000 + Math.random() * 15_000_000);
-    const category = deriveCategory(tpt, tpv, prevTpt, prevTpv);
-    const idnum = (page - 1) * size + idx + 1;
-    return { 
-      id: `m-${product}-${pillar}-${period}-${page}-${idx}`, 
-      brand_id: `BRD-${String(idnum).padStart(4, "0")}`, 
-      merchant_name: name, 
-      product: PRODUCTS.find((p) => p.key === product)?.label || product, 
-      tpt, 
-      tpv, 
-      category 
-    };
-  });
-  return { rows, total: 60 };
+async function fetchMerchantsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
+  try {
+    const dbPillar = pillar === "wallets_billing" ? "wallet_billing" : pillar;
+    
+    let query = supabase
+      .from('merchant_data')
+      .select('date, brand_id, merchant_name, product_type, tpt, tpv', { count: 'exact' });
+    
+    if (product) query = query.eq('product_type', product);
+    if (dbPillar) query = query.eq('pillar', dbPillar);
+    if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
+    if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
+    
+    const { data, error, count } = await query;
+    
+    if (error) throw error;
+    
+    // Group by merchant and product
+    const merchantMap: Record<string, { tpt: number; tpv: number; brand_id: string; merchant_name: string; product: string }> = {};
+    
+    data?.forEach(row => {
+      const key = `${row.brand_id}-${row.product_type}`;
+      
+      if (!merchantMap[key]) {
+        merchantMap[key] = {
+          tpt: 0,
+          tpv: 0,
+          brand_id: row.brand_id,
+          merchant_name: row.merchant_name,
+          product: row.product_type
+        };
+      }
+      merchantMap[key].tpt += Number(row.tpt) || 0;
+      merchantMap[key].tpv += Number(row.tpv) || 0;
+    });
+    
+    const rows = Object.values(merchantMap)
+      .map((values) => ({
+        id: `${values.brand_id}-${values.product}`,
+        brand_id: values.brand_id,
+        merchant_name: values.merchant_name,
+        product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
+        tpt: Math.round(values.tpt),
+        tpv: Math.round(values.tpv),
+        category: "performing" as const
+      }))
+      .sort((a, b) => a.brand_id.localeCompare(b.brand_id));
+    
+    const start = (page - 1) * size;
+    const paginatedRows = rows.slice(start, start + size);
+    
+    return { rows: paginatedRows, total: rows.length };
+  } catch (error) {
+    console.error("Error fetching merchants table:", error);
+    return { rows: [], total: 0 };
+  }
 }
 
 async function fetchMerchantChurn({ product, page = 1, size = 8 }: any) {
@@ -412,8 +599,8 @@ export default function PaymentsKPIDashboard() {
     try {
       const [{ series, totals, category }, tableRes, merchantRes] = await Promise.all([
         fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }),
-        fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize }),
-        fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize }),
+        fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize, rangeStart, rangeEnd }),
+        fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize, rangeStart, rangeEnd }),
       ]);
       setSeries(series);
       setTotals(totals);
@@ -455,6 +642,8 @@ export default function PaymentsKPIDashboard() {
         const result = await importCheckoutData(csvContent);
         console.log("Import result:", result);
         alert(`Successfully imported ${result.imported} records!`);
+        // Reload data after import
+        await loadAll();
       } catch (error) {
         console.error("Import error:", error);
         alert("Failed to import data. Check console for details.");
