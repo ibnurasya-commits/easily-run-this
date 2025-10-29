@@ -435,7 +435,7 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
         return {
           id: `${values.product}-${values.pillar}-${dateLabel}`,
           date_or_month: dateLabel,
-          pillar_name: PILLARS.find((p) => p.key === values.pillar || (p.key === "wallets_billing" && values.pillar === "wallet_billing"))?.label || values.pillar,
+          pillar_name: PILLARS.find((p) => p.key === values.pillar.toLowerCase() || (p.key === "wallets_billing" && (values.pillar.toLowerCase() === "wallet_billing" || values.pillar.toLowerCase() === "wallets_billing")))?.label || values.pillar,
           product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
           tpt: Math.round(values.tpt),
           tpv: Math.round(values.tpv),
@@ -475,7 +475,7 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
         return {
           id: `${values.product}-${values.pillar}-${dateKey}`,
           date_or_month: dateKey,
-          pillar_name: PILLARS.find((p) => p.key === values.pillar || (p.key === "wallets_billing" && values.pillar === "wallet_billing"))?.label || values.pillar,
+          pillar_name: PILLARS.find((p) => p.key === values.pillar.toLowerCase() || (p.key === "wallets_billing" && (values.pillar.toLowerCase() === "wallet_billing" || values.pillar.toLowerCase() === "wallets_billing")))?.label || values.pillar,
           product: PRODUCTS.find((p) => p.key === values.product)?.label || values.product,
           tpt: Math.round(values.tpt),
           tpv: Math.round(values.tpv),
@@ -1390,6 +1390,23 @@ export default function PaymentsKPIDashboard() {
             <TabsContent value="agg">
               <Card className="border-none shadow-md">
                 <CardContent className="p-0">
+                  {/* Product Category Filter */}
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-end bg-gradient-to-r from-slate-50 to-slate-100/50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600">Product Category:</span>
+                      <Select value={aggCategory} onValueChange={setAggCategory}>
+                        <SelectTrigger className="w-48 opacity-60"><SelectValue placeholder="All" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="performing">Performing</SelectItem>
+                          <SelectItem value="declining_frequency">Declining Frequency</SelectItem>
+                          <SelectItem value="value_drop">Value Drop</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                          <SelectItem value="idle">Idle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-slate-50 text-left">
