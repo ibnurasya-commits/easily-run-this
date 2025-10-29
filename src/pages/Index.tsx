@@ -158,11 +158,14 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     const dbProduct = product === "paychat" ? "PayChat" : product;
     
+    console.log("fetchKPIMetrics called with:", { product, pillar, rangeEnd, dbProduct, dbPillar });
+    
     // Use rangeEnd as the last month, or fall back to finding the most recent month
     let lastMonth: string;
     
     if (rangeEnd) {
       lastMonth = rangeEnd; // e.g., "2025-10"
+      console.log("Using rangeEnd as lastMonth:", lastMonth);
     } else {
       // Fallback: get the most recent month in the data
       let lastMonthQuery = supabase
@@ -177,15 +180,19 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
       const { data: lastMonthData, error: lastMonthError } = await lastMonthQuery;
       if (lastMonthError) throw lastMonthError;
       if (!lastMonthData || lastMonthData.length === 0) {
+        console.log("No data found, returning zeros");
         return { tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle" };
       }
       
       lastMonth = lastMonthData[0].date.slice(0, 7); // e.g., "2025-09"
+      console.log("Found lastMonth from DB:", lastMonth);
     }
     
     const lastMonthDate = new Date(lastMonth + "-01");
     const prevMonthDate = addMonths(lastMonthDate, -1);
     const prevMonth = prevMonthDate.toISOString().slice(0, 7); // e.g., "2025-08"
+    
+    console.log("Comparing months:", lastMonth, "vs", prevMonth);
     
     // Fetch data for both months
     let query = supabase
@@ -236,13 +243,16 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
     const tpvChange = pctChange(lastMonthTPV, prevMonthTPV);
     const category = deriveCategory(lastMonthTPT, lastMonthTPV, prevMonthTPT, prevMonthTPV);
     
-    return {
+    const result = {
       tpt: Math.round(lastMonthTPT),
       tpv: Math.round(lastMonthTPV),
       tptChange,
       tpvChange,
       category
     };
+    
+    console.log("fetchKPIMetrics returning:", result);
+    return result;
   } catch (error) {
     console.error("Error fetching KPI metrics:", error);
     return { tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle" };
@@ -802,12 +812,14 @@ export default function PaymentsKPIDashboard() {
   const loadAll = async () => {
     setLoading(true);
     try {
+      console.log("Loading with rangeEnd:", rangeEnd, "product:", product, "pillar:", pillar);
       const [kpiData, { series }, tableRes, merchantRes] = await Promise.all([
         fetchKPIMetrics({ product, pillar, rangeEnd }),
         fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }),
         fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize, rangeStart, rangeEnd }),
         fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize, rangeStart, rangeEnd }),
       ]);
+      console.log("KPI Data received:", kpiData);
       setKpiMetrics(kpiData);
       setSeries(series);
       setTable(tableRes.rows);
