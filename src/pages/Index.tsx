@@ -274,8 +274,8 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
       query = query.lt('date', nextMonthStart);
     }
     
-    // Apply limit at the end
-    query = query.limit(10000);
+    // Apply range to get more than default 1000 rows
+    query = query.range(0, 20000);
     
     const { data, error } = await query;
     
@@ -377,8 +377,8 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, range
       console.log("Date filters:", { rangeStart: `${rangeStart}-01`, rangeEnd: nextMonthStart });
     }
     
-    // Apply limit at the end
-    query = query.limit(10000);
+    // Apply range to get more than default 1000 rows
+    query = query.range(0, 20000);
     
     const { data, error } = await query;
     
@@ -484,8 +484,8 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, ran
       query = query.lt('date', nextMonthStart);
     }
     
-    // Apply limit at the end
-    query = query.limit(10000);
+    // Apply range to get more than default 1000 rows
+    query = query.range(0, 20000);
     
     const { data, error } = await query;
     
