@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      merchant_data: {
+        Row: {
+          brand_id: string
+          created_at: string
+          date: string
+          id: string
+          merchant_name: string
+          pillar: string
+          product_type: string
+          tpt: number
+          tpv: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          date: string
+          id?: string
+          merchant_name: string
+          pillar: string
+          product_type: string
+          tpt?: number
+          tpv?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          merchant_name?: string
+          pillar?: string
+          product_type?: string
+          tpt?: number
+          tpv?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
