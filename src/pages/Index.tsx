@@ -153,10 +153,20 @@ function addDays(d: Date, delta: number) { const nd = new Date(d); nd.setDate(nd
 function addQuarters(d: Date, delta: number) { const nd = new Date(d); nd.setMonth(nd.getMonth()+delta*3); return nd; }
 function pctChange(curr: number, prev: number) { if (!prev) return 0; return ((curr-prev)/prev)*100; }
 
+// Helper function to map product keys to database values
+function mapProductToDb(product: string): string {
+  const productMap: Record<string, string> = {
+    'paychat': 'PayChat',
+    'waas': 'WaaS',
+    'sub_account': 'Sub Account'
+  };
+  return productMap[product] || product;
+}
+
 async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
-    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbProduct = mapProductToDb(product);
     
     console.log("fetchKPIMetrics called with:", { product, pillar, rangeEnd, dbProduct, dbPillar });
     
@@ -254,7 +264,7 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
     // Map pillar from UI value to DB value
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     // Map product from UI value to DB value
-    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbProduct = mapProductToDb(product);
     
     let query = supabase
       .from('merchant_data')
@@ -343,7 +353,7 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
 async function fetchMetricsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
-    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbProduct = mapProductToDb(product);
     
     let query = supabase
       .from('merchant_data')
@@ -440,7 +450,7 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, page 
 async function fetchMerchantsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
-    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbProduct = mapProductToDb(product);
     
     let query = supabase
       .from('merchant_data')
@@ -498,7 +508,7 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, pag
 
 async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page = 1, size = 8 }: any) {
   try {
-    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbProduct = mapProductToDb(product);
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     
     console.log("fetchMerchantChurn - rangeStart:", rangeStart, "rangeEnd:", rangeEnd);
@@ -592,7 +602,7 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
 
 async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page = 1, size = 8 }: any) {
   try {
-    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbProduct = mapProductToDb(product);
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     
     // Calculate previous period
