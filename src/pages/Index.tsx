@@ -592,7 +592,6 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
           merchant_name: m.merchant_name,
           risk_category,
           tpt: Math.round(m.currentTPT),
-          previous_tpt: Math.round(m.previousTPT),
           tpt_drop: Math.round(tptDrop),
           action
         };
@@ -681,7 +680,6 @@ async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page
           merchant_name: m.merchant_name,
           potential_category,
           tpv: Math.round(m.currentTPV),
-          previous_tpv: Math.round(m.previousTPV),
           tpv_growth: Math.round(tpvGrowth),
           action
         };
@@ -1364,7 +1362,6 @@ export default function PaymentsKPIDashboard() {
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("merchant_name")}>Merchant{sortIndicator(churnSortKey==="merchant_name", churnSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("risk_category")}>Risk Category{sortIndicator(churnSortKey==="risk_category", churnSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("tpt")}>TPT{sortIndicator(churnSortKey==="tpt", churnSortDir)}</th>
-                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("previous_tpt")}>Last Month{sortIndicator(churnSortKey==="previous_tpt", churnSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("action")}>Recommendation Action{sortIndicator(churnSortKey==="action", churnSortDir)}</th>
                         </tr>
                       </thead>
@@ -1375,7 +1372,6 @@ export default function PaymentsKPIDashboard() {
                             <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
                             <td className="px-4 py-2"><RiskCategoryBadge category={r.risk_category} /></td>
                             <td className="px-4 py-2">{r.tpt.toLocaleString("id-ID")}</td>
-                            <td className="px-4 py-2">{r.previous_tpt.toLocaleString("id-ID")}</td>
                             <td className="px-4 py-2">{r.action}</td>
                           </tr>
                         ))}
@@ -1427,7 +1423,6 @@ export default function PaymentsKPIDashboard() {
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("merchant_name")}>Merchant{sortIndicator(profitSortKey==="merchant_name", profitSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("potential_category")}>Potential Category{sortIndicator(profitSortKey==="potential_category", profitSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("tpv")}>TPV{sortIndicator(profitSortKey==="tpv", profitSortDir)}</th>
-                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("previous_tpv")}>Last Month{sortIndicator(profitSortKey==="previous_tpv", profitSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("action")}>Recommendation Action{sortIndicator(profitSortKey==="action", profitSortDir)}</th>
                         </tr>
                       </thead>
@@ -1438,7 +1433,6 @@ export default function PaymentsKPIDashboard() {
                             <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
                             <td className="px-4 py-2"><PotentialCategoryBadge category={r.potential_category} /></td>
                             <td className="px-4 py-2">{formatRupiah(r.tpv)}</td>
-                            <td className="px-4 py-2">{formatRupiah(r.previous_tpv)}</td>
                             <td className="px-4 py-2">{r.action}</td>
                           </tr>
                         ))}
