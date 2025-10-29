@@ -414,48 +414,168 @@ async function fetchMerchantsTable({ product, pillar, period, date_or_month, pag
   }
 }
 
-async function fetchMerchantChurn({ product, page = 1, size = 8 }: any) {
-  await wait(120);
-  const merchants = ["Alfa Mart Bogor","R&B Store","Semeton Hebat","Klik Bazar","Love Bali","DOKU Wallet Mall","PMM Outlet","Transfer Svc Kios"];
-  const rows = Array.from({ length: size }).map((_, idx) => {
-    const merchant_name = merchants[idx % merchants.length];
-    const tpt = Math.round(50 + Math.random() * 300);
-    const tptDrop = Math.random() * 40; // 0-40% drop
-    const risk_category = getRiskCategory(tptDrop);
-    const action = getRiskAction(risk_category);
-    const idnum = (page - 1) * size + idx + 1;
-    return { 
-      id: `churn-${page}-${idx}`, 
-      brand_id: `BRD-${String(idnum).padStart(4, "0")}`, 
-      merchant_name, 
-      risk_category,
-      tpt,
-      action
-    };
-  });
-  return { rows, total: 64 };
+async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page = 1, size = 8 }: any) {
+  try {
+    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
+    
+    // Calculate previous period
+    const currentStart = rangeStart || rangeEnd || new Date().toISOString().slice(0, 7);
+    const currentEnd = rangeEnd || currentStart;
+    const [currYear, currMonth] = currentStart.split('-').map(Number);
+    const prevDate = new Date(currYear, currMonth - 2, 1); // -2 because month is 0-indexed and we want previous month
+    const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    const prevEnd = prevStart;
+    
+    // Query current period
+    let currentQuery = supabase
+      .from('merchant_data')
+      .select('brand_id, merchant_name, tpt');
+    if (dbProduct) currentQuery = currentQuery.eq('product_type', dbProduct);
+    if (dbPillar) currentQuery = currentQuery.eq('pillar', dbPillar);
+    currentQuery = currentQuery.gte('date', `${currentStart}-01`).lte('date', `${currentEnd}-28`);
+    
+    // Query previous period
+    let previousQuery = supabase
+      .from('merchant_data')
+      .select('brand_id, merchant_name, tpt');
+    if (dbProduct) previousQuery = previousQuery.eq('product_type', dbProduct);
+    if (dbPillar) previousQuery = previousQuery.eq('pillar', dbPillar);
+    previousQuery = previousQuery.gte('date', `${prevStart}-01`).lte('date', `${prevEnd}-28`);
+    
+    const [{ data: currentData }, { data: previousData }] = await Promise.all([
+      currentQuery,
+      previousQuery
+    ]);
+    
+    // Aggregate by merchant
+    const merchantMap = new Map<string, { brand_id: string; merchant_name: string; currentTPT: number; previousTPT: number }>();
+    
+    currentData?.forEach(row => {
+      const key = row.brand_id;
+      if (!merchantMap.has(key)) {
+        merchantMap.set(key, { brand_id: row.brand_id, merchant_name: row.merchant_name, currentTPT: 0, previousTPT: 0 });
+      }
+      merchantMap.get(key)!.currentTPT += Number(row.tpt);
+    });
+    
+    previousData?.forEach(row => {
+      const key = row.brand_id;
+      if (!merchantMap.has(key)) {
+        merchantMap.set(key, { brand_id: row.brand_id, merchant_name: row.merchant_name, currentTPT: 0, previousTPT: 0 });
+      }
+      merchantMap.get(key)!.previousTPT += Number(row.tpt);
+    });
+    
+    // Calculate churn risk
+    const rows = Array.from(merchantMap.values())
+      .filter(m => m.previousTPT > 0) // Only merchants with previous data
+      .map(m => {
+        const tptDrop = ((m.previousTPT - m.currentTPT) / m.previousTPT) * 100;
+        const risk_category = getRiskCategory(tptDrop);
+        const action = getRiskAction(risk_category);
+        return {
+          id: `churn-${m.brand_id}`,
+          brand_id: m.brand_id,
+          merchant_name: m.merchant_name,
+          risk_category,
+          tpt: Math.round(m.currentTPT),
+          tpt_drop: Math.round(tptDrop),
+          action
+        };
+      })
+      .sort((a, b) => b.tpt_drop - a.tpt_drop); // Sort by highest drop first
+    
+    const start = (page - 1) * size;
+    const paginatedRows = rows.slice(start, start + size);
+    
+    return { rows: paginatedRows, total: rows.length };
+  } catch (error) {
+    console.error("Error fetching merchant churn:", error);
+    return { rows: [], total: 0 };
+  }
 }
 
-async function fetchMerchantProfit({ product, page = 1, size = 8 }: any) {
-  await wait(120);
-  const merchants = ["Alfa Mart Bogor","R&B Store","Semeton Hebat","Klik Bazar","Love Bali","DOKU Wallet Mall","PMM Outlet","Transfer Svc Kios"];
-  const rows = Array.from({ length: size }).map((_, idx) => {
-    const merchant_name = merchants[idx % merchants.length];
-    const tpv = Math.round(2_000_000 + Math.random() * 10_000_000);
-    const tpvGrowth = (Math.random() * 60) - 10; // -10% to 50% growth
-    const potential_category = getPotentialCategory(tpvGrowth);
-    const action = getPotentialAction(potential_category);
-    const idnum = (page - 1) * size + idx + 1;
-    return { 
-      id: `profit-${page}-${idx}`, 
-      brand_id: `BRD-${String(idnum).padStart(4, "0")}`, 
-      merchant_name, 
-      potential_category,
-      tpv,
-      action
-    };
-  });
-  return { rows, total: 64 };
+async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page = 1, size = 8 }: any) {
+  try {
+    const dbProduct = product === "paychat" ? "PayChat" : product;
+    const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
+    
+    // Calculate previous period
+    const currentStart = rangeStart || rangeEnd || new Date().toISOString().slice(0, 7);
+    const currentEnd = rangeEnd || currentStart;
+    const [currYear, currMonth] = currentStart.split('-').map(Number);
+    const prevDate = new Date(currYear, currMonth - 2, 1);
+    const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    const prevEnd = prevStart;
+    
+    // Query current period
+    let currentQuery = supabase
+      .from('merchant_data')
+      .select('brand_id, merchant_name, tpv');
+    if (dbProduct) currentQuery = currentQuery.eq('product_type', dbProduct);
+    if (dbPillar) currentQuery = currentQuery.eq('pillar', dbPillar);
+    currentQuery = currentQuery.gte('date', `${currentStart}-01`).lte('date', `${currentEnd}-28`);
+    
+    // Query previous period
+    let previousQuery = supabase
+      .from('merchant_data')
+      .select('brand_id, merchant_name, tpv');
+    if (dbProduct) previousQuery = previousQuery.eq('product_type', dbProduct);
+    if (dbPillar) previousQuery = previousQuery.eq('pillar', dbPillar);
+    previousQuery = previousQuery.gte('date', `${prevStart}-01`).lte('date', `${prevEnd}-28`);
+    
+    const [{ data: currentData }, { data: previousData }] = await Promise.all([
+      currentQuery,
+      previousQuery
+    ]);
+    
+    // Aggregate by merchant
+    const merchantMap = new Map<string, { brand_id: string; merchant_name: string; currentTPV: number; previousTPV: number }>();
+    
+    currentData?.forEach(row => {
+      const key = row.brand_id;
+      if (!merchantMap.has(key)) {
+        merchantMap.set(key, { brand_id: row.brand_id, merchant_name: row.merchant_name, currentTPV: 0, previousTPV: 0 });
+      }
+      merchantMap.get(key)!.currentTPV += Number(row.tpv);
+    });
+    
+    previousData?.forEach(row => {
+      const key = row.brand_id;
+      if (!merchantMap.has(key)) {
+        merchantMap.set(key, { brand_id: row.brand_id, merchant_name: row.merchant_name, currentTPV: 0, previousTPV: 0 });
+      }
+      merchantMap.get(key)!.previousTPV += Number(row.tpv);
+    });
+    
+    // Calculate profit potential
+    const rows = Array.from(merchantMap.values())
+      .filter(m => m.previousTPV > 0) // Only merchants with previous data
+      .map(m => {
+        const tpvGrowth = ((m.currentTPV - m.previousTPV) / m.previousTPV) * 100;
+        const potential_category = getPotentialCategory(tpvGrowth);
+        const action = getPotentialAction(potential_category);
+        return {
+          id: `profit-${m.brand_id}`,
+          brand_id: m.brand_id,
+          merchant_name: m.merchant_name,
+          potential_category,
+          tpv: Math.round(m.currentTPV),
+          tpv_growth: Math.round(tpvGrowth),
+          action
+        };
+      })
+      .sort((a, b) => b.tpv_growth - a.tpv_growth); // Sort by highest growth first
+    
+    const start = (page - 1) * size;
+    const paginatedRows = rows.slice(start, start + size);
+    
+    return { rows: paginatedRows, total: rows.length };
+  } catch (error) {
+    console.error("Error fetching merchant profit:", error);
+    return { rows: [], total: 0 };
+  }
 }
 
 function StatusBadge({ c }: { c: string }) {
@@ -620,8 +740,8 @@ export default function PaymentsKPIDashboard() {
 
   const loadMerchantRecos = async () => {
     const [ch, pr] = await Promise.all([
-      fetchMerchantChurn({ product, page: churnPage, size: pageSize }),
-      fetchMerchantProfit({ product, page: profitPage, size: pageSize }),
+      fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page: churnPage, size: pageSize }),
+      fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page: profitPage, size: pageSize }),
     ]);
     setChurnRows(ch.rows);
     setChurnTotal(ch.total);
