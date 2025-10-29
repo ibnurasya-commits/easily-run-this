@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, BarChart3, Table as TableIcon, Sparkles, RefreshCw, Users, Upload } from "lucide-react";
+import { CalendarDays, BarChart3, Table as TableIcon, Sparkles, RefreshCw, Users, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DateRange } from "react-day-picker";
 import {
@@ -866,6 +866,13 @@ export default function PaymentsKPIDashboard() {
   const [profitSortKey, setProfitSortKey] = useState<string>("brand_id");
   const [profitSortDir, setProfitSortDir] = useState<SortDir>("asc");
 
+  // Pagination state
+  const [aggPage, setAggPage] = useState(1);
+  const [merchantsPage, setMerchantsPage] = useState(1);
+  const [churnPage, setChurnPage] = useState(1);
+  const [profitPage, setProfitPage] = useState(1);
+  const itemsPerPage = 20;
+
   const dateParam = useMemo(() => (rangeEnd || rangeStart), [rangeStart, rangeEnd]);
 
   useEffect(() => {
@@ -1036,6 +1043,39 @@ export default function PaymentsKPIDashboard() {
     });
     return sortBy(filtered as any, profitSortKey as any, profitSortDir);
   }, [profitRows, profitSearch, profitActionCat, profitSortKey, profitSortDir]);
+
+  // Pagination logic
+  const paginatedAgg = useMemo(() => {
+    const start = (aggPage - 1) * itemsPerPage;
+    return filteredAgg.slice(start, start + itemsPerPage);
+  }, [filteredAgg, aggPage]);
+
+  const paginatedMerchants = useMemo(() => {
+    const start = (merchantsPage - 1) * itemsPerPage;
+    return filteredMerchants.slice(start, start + itemsPerPage);
+  }, [filteredMerchants, merchantsPage]);
+
+  const paginatedChurn = useMemo(() => {
+    const start = (churnPage - 1) * itemsPerPage;
+    return filteredChurn.slice(start, start + itemsPerPage);
+  }, [filteredChurn, churnPage]);
+
+  const paginatedProfit = useMemo(() => {
+    const start = (profitPage - 1) * itemsPerPage;
+    return filteredProfit.slice(start, start + itemsPerPage);
+  }, [filteredProfit, profitPage]);
+
+  // Total pages
+  const aggTotalPages = Math.ceil(filteredAgg.length / itemsPerPage);
+  const merchantsTotalPages = Math.ceil(filteredMerchants.length / itemsPerPage);
+  const churnTotalPages = Math.ceil(filteredChurn.length / itemsPerPage);
+  const profitTotalPages = Math.ceil(filteredProfit.length / itemsPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setAggPage(1); }, [filteredAgg.length]);
+  useEffect(() => { setMerchantsPage(1); }, [filteredMerchants.length]);
+  useEffect(() => { setChurnPage(1); }, [filteredChurn.length]);
+  useEffect(() => { setProfitPage(1); }, [filteredProfit.length]);
 
   // Sort togglers
   const toggleAggSort = (key: string) => { if (aggSortKey === key) setAggSortDir(nextDir(aggSortDir)); else { setAggSortKey(key); setAggSortDir("asc"); } };
@@ -1286,7 +1326,7 @@ export default function PaymentsKPIDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAgg.map((r) => (
+                        {paginatedAgg.map((r) => (
                           <tr key={r.id} className="border-t hover:bg-slate-50">
                             <td className="px-4 py-2 font-medium">{r.date_or_month}</td>
                             <td className="px-4 py-2">{r.pillar_name}</td>
@@ -1299,8 +1339,31 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-end p-4">
-                    <div className="text-xs text-slate-500">{filteredAgg.length} records</div>
+                  <div className="flex items-center justify-between p-4 border-t">
+                    <div className="text-xs text-slate-500">
+                      Showing {filteredAgg.length > 0 ? (aggPage - 1) * itemsPerPage + 1 : 0}-{Math.min(aggPage * itemsPerPage, filteredAgg.length)} of {filteredAgg.length} records
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAggPage(p => Math.max(1, p - 1))}
+                        disabled={aggPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-slate-600">
+                        Page {aggPage} of {aggTotalPages || 1}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAggPage(p => Math.min(aggTotalPages, p + 1))}
+                        disabled={aggPage === aggTotalPages || aggTotalPages === 0}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1345,7 +1408,7 @@ export default function PaymentsKPIDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredMerchants.map((r) => (
+                        {paginatedMerchants.map((r) => (
                           <tr key={r.id} className="border-t">
                             <td className="px-4 py-2 font-mono text-xs">{r.brand_id}</td>
                             <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
@@ -1358,8 +1421,31 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-end p-4">
-                    <div className="text-xs text-slate-500">{filteredMerchants.length} records</div>
+                  <div className="flex items-center justify-between p-4 border-t">
+                    <div className="text-xs text-slate-500">
+                      Showing {filteredMerchants.length > 0 ? (merchantsPage - 1) * itemsPerPage + 1 : 0}-{Math.min(merchantsPage * itemsPerPage, filteredMerchants.length)} of {filteredMerchants.length} records
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMerchantsPage(p => Math.max(1, p - 1))}
+                        disabled={merchantsPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-slate-600">
+                        Page {merchantsPage} of {merchantsTotalPages || 1}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMerchantsPage(p => Math.min(merchantsTotalPages, p + 1))}
+                        disabled={merchantsPage === merchantsTotalPages || merchantsTotalPages === 0}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1415,7 +1501,7 @@ export default function PaymentsKPIDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredChurn.map((r) => (
+                        {paginatedChurn.map((r) => (
                           <tr key={r.id} className="border-t">
                             <td className="px-4 py-2 font-mono text-xs">{r.brand_id}</td>
                             <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
@@ -1427,8 +1513,31 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-end p-4">
-                    <div className="text-xs text-slate-500">{filteredChurn.length} records</div>
+                  <div className="flex items-center justify-between p-4 border-t">
+                    <div className="text-xs text-slate-500">
+                      Showing {filteredChurn.length > 0 ? (churnPage - 1) * itemsPerPage + 1 : 0}-{Math.min(churnPage * itemsPerPage, filteredChurn.length)} of {filteredChurn.length} records
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setChurnPage(p => Math.max(1, p - 1))}
+                        disabled={churnPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-slate-600">
+                        Page {churnPage} of {churnTotalPages || 1}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setChurnPage(p => Math.min(churnTotalPages, p + 1))}
+                        disabled={churnPage === churnTotalPages || churnTotalPages === 0}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1472,7 +1581,7 @@ export default function PaymentsKPIDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredProfit.map((r) => (
+                        {paginatedProfit.map((r) => (
                           <tr key={r.id} className="border-t">
                             <td className="px-4 py-2 font-mono text-xs">{r.brand_id}</td>
                             <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
@@ -1484,8 +1593,31 @@ export default function PaymentsKPIDashboard() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-end p-4">
-                    <div className="text-xs text-slate-500">{filteredProfit.length} records</div>
+                  <div className="flex items-center justify-between p-4 border-t">
+                    <div className="text-xs text-slate-500">
+                      Showing {filteredProfit.length > 0 ? (profitPage - 1) * itemsPerPage + 1 : 0}-{Math.min(profitPage * itemsPerPage, filteredProfit.length)} of {filteredProfit.length} records
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProfitPage(p => Math.max(1, p - 1))}
+                        disabled={profitPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-slate-600">
+                        Page {profitPage} of {profitTotalPages || 1}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProfitPage(p => Math.min(profitTotalPages, p + 1))}
+                        disabled={profitPage === profitTotalPages || profitTotalPages === 0}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
