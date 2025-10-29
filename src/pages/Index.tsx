@@ -157,13 +157,15 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
   try {
     // Map pillar from UI value to DB value
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
+    // Map product from UI value to DB value
+    const dbProduct = product === "paychat" ? "PayChat" : product;
     
     let query = supabase
       .from('merchant_data')
       .select('date, tpt, tpv, merchant_name');
     
     // Filter by product and pillar
-    if (product) query = query.eq('product_type', product);
+    if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
     
     // Filter by date range
@@ -259,12 +261,13 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
 async function fetchMetricsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
+    const dbProduct = product === "paychat" ? "PayChat" : product;
     
     let query = supabase
       .from('merchant_data')
       .select('date, pillar, product_type, tpt, tpv', { count: 'exact' });
     
-    if (product) query = query.eq('product_type', product);
+    if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
     if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
     if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
@@ -355,12 +358,13 @@ async function fetchMetricsTable({ product, pillar, period, date_or_month, page 
 async function fetchMerchantsTable({ product, pillar, period, date_or_month, page = 1, size = 10, rangeStart, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
+    const dbProduct = product === "paychat" ? "PayChat" : product;
     
     let query = supabase
       .from('merchant_data')
       .select('date, brand_id, merchant_name, product_type, tpt, tpv', { count: 'exact' });
     
-    if (product) query = query.eq('product_type', product);
+    if (dbProduct) query = query.eq('product_type', dbProduct);
     if (dbPillar) query = query.eq('pillar', dbPillar);
     if (rangeStart) query = query.gte('date', `${rangeStart}-01`);
     if (rangeEnd) query = query.lte('date', `${rangeEnd}-28`);
