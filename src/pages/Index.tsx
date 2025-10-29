@@ -884,7 +884,7 @@ export default function PaymentsKPIDashboard() {
   const [merchantsPage, setMerchantsPage] = useState(1);
   const [churnPage, setChurnPage] = useState(1);
   const [profitPage, setProfitPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 10;
 
   const dateParam = useMemo(() => (rangeEnd || rangeStart), [rangeStart, rangeEnd]);
 
