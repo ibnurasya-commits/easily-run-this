@@ -1,14 +1,998 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React, { useEffect, useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { CalendarDays, BarChart3, Table as TableIcon, Sparkles, RefreshCw, Users } from "lucide-react";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { DateRange } from "react-day-picker";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+  BarChart,
+  Bar,
+} from "recharts";
 
-const Index = () => {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+/**
+ * Payments KPI Dashboard – Frontend (React)
+ * Range Date: single input (e.g., "2025-10-01 - 2025-10-31" or "2025-09 - 2025-10")
+ */
+
+const PRODUCTS = [
+  { key: "waas", label: "WaaS" },
+  { key: "paychat", label: "PayChat" },
+  { key: "sub_account", label: "Sub Account" },
+];
+
+const PERIODS = [
+  { key: "month", label: "Month" },
+  { key: "quarter", label: "Quarter" },
+];
+
+const PILLARS = [
+  { key: "accept_payment", label: "Accept Payment", soon: true },
+  { key: "payouts", label: "Payouts", soon: true },
+  { key: "wallets_billing", label: "Wallets & Billing", soon: false },
+];
+
+export const CHURN_CONFIG: Record<string, { horizon_days: number; bands: { high: number; medium: number } }> = {
+  default: { horizon_days: 30, bands: { high: 0.7, medium: 0.4 } },
+  paychat: { horizon_days: 30, bands: { high: 0.7, medium: 0.4 } },
+  waas: { horizon_days: 30, bands: { high: 0.7, medium: 0.4 } },
+  sub_account: { horizon_days: 30, bands: { high: 0.7, medium: 0.4 } },
 };
 
-export default Index;
+export function deriveCategory(tpt: number, tpv: number, prevTpt?: number, prevTpv?: number): "performing" | "declining_frequency" | "value_drop" | "critical" {
+  // Calculate changes
+  const tptChange = prevTpt ? ((tpt - prevTpt) / prevTpt) * 100 : 0;
+  const tpvChange = prevTpv ? ((tpv - prevTpv) / prevTpv) * 100 : 0;
+  
+  // Critical: both metrics declining significantly
+  if (tptChange < -20 && tpvChange < -20) return "critical";
+  
+  // Declining Frequency: TPT drops but TPV stable or growing
+  if (tptChange < -10 && tpvChange >= -10) return "declining_frequency";
+  
+  // Value Drop: TPV drops but TPT stable or growing
+  if (tpvChange < -10 && tptChange >= -10) return "value_drop";
+  
+  // Performing: both metrics stable or growing
+  return "performing";
+}
+
+export function formatRupiah(n: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+}
+
+export function getRiskCategory(tptDrop: number): "healthy" | "at_risk" | "critical" {
+  if (tptDrop >= 30) return "critical";
+  if (tptDrop >= 20) return "at_risk";
+  return "healthy";
+}
+
+export function getPotentialCategory(tpvGrowth: number): "low" | "limited" | "moderate" | "high" {
+  if (tpvGrowth >= 30) return "high";
+  if (tpvGrowth >= 20) return "moderate";
+  if (tpvGrowth >= 0) return "limited";
+  return "low";
+}
+
+export function getRiskAction(category: "healthy" | "at_risk" | "critical"): string {
+  if (category === "critical") return "Promotion";
+  if (category === "at_risk") return "Engagement";
+  return "Campaign";
+}
+
+export function getPotentialAction(category: "low" | "limited" | "moderate" | "high"): string {
+  if (category === "high") return "Upsell";
+  if (category === "moderate") return "Cross-sell";
+  if (category === "limited") return "Promotion";
+  return "Reactivation";
+}
+
+// ---- Small utilities for sorting ----
+type SortDir = "asc" | "desc";
+function sortBy<T extends Record<string, any>>(rows: T[], key: keyof T, dir: SortDir): T[] {
+  const copy = [...rows];
+  copy.sort((a, b) => {
+    const va = a[key];
+    const vb = b[key];
+    if (va == null && vb == null) return 0;
+    if (va == null) return dir === "asc" ? -1 : 1;
+    if (vb == null) return dir === "asc" ? 1 : -1;
+    if (typeof va === "number" && typeof vb === "number") return dir === "asc" ? va - vb : vb - va;
+    const sa = String(va).toLowerCase();
+    const sb = String(vb).toLowerCase();
+    if (sa < sb) return dir === "asc" ? -1 : 1;
+    if (sa > sb) return dir === "asc" ? 1 : -1;
+    return 0;
+  });
+  return copy;
+}
+const nextDir = (d: SortDir): SortDir => (d === "asc" ? "desc" : "asc");
+const sortIndicator = (active: boolean, dir: SortDir) => (
+  <span className="ml-1 inline-block text-xs align-middle">{active ? (dir === "asc" ? "▲" : "▼") : ""}</span>
+);
+
+// --- Self-tests ---
+(function selfTest() {
+  try {
+    console.assert(formatRupiah(150000) === "Rp\u00A0150.000");
+    console.assert(formatRupiah(0) === "Rp\u00A00");
+    console.assert(getRiskCategory(35) === "critical");
+    console.assert(getRiskCategory(25) === "at_risk");
+    console.assert(getRiskCategory(5) === "healthy");
+    console.assert(getPotentialCategory(35) === "high");
+    console.assert(getPotentialCategory(25) === "moderate");
+    console.assert(getPotentialCategory(5) === "limited");
+    console.assert(getPotentialCategory(-5) === "low");
+  } catch (e) { /* noop in prod */ }
+})();
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// --- Date helpers ---
+function parseAnchorDate(period: string, rangeEnd: string, rangeStart: string) {
+  const base = rangeEnd || rangeStart || new Date().toISOString().slice(0, 7);
+  return new Date(base + "-01");
+}
+function formatMonthLabel(d: Date) { return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(d); }
+function formatDayLabel(d: Date) { return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(d); }
+function formatQuarterLabel(d: Date) { const q = Math.floor(d.getMonth()/3)+1; return `Q${q} ${d.getFullYear()}`; }
+function addMonths(d: Date, delta: number) { const nd = new Date(d); nd.setMonth(nd.getMonth()+delta); return nd; }
+function addDays(d: Date, delta: number) { const nd = new Date(d); nd.setDate(nd.getDate()+delta); return nd; }
+function addQuarters(d: Date, delta: number) { const nd = new Date(d); nd.setMonth(nd.getMonth()+delta*3); return nd; }
+function pctChange(curr: number, prev: number) { if (!prev) return 0; return ((curr-prev)/prev)*100; }
+
+async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }: any) {
+  await wait(120);
+  const points = period === "quarter" ? 4 : 6;
+  const anchor = parseAnchorDate(period, rangeEnd, rangeStart);
+  const series = Array.from({ length: points }).map((_, i) => {
+    const idx = points - 1 - i;
+    let d: Date, label: string;
+    if (period === "quarter") { d = addQuarters(anchor, -idx); label = formatQuarterLabel(d); }
+    else { d = addMonths(anchor, -idx); label = formatMonthLabel(d); }
+    const tpt = Math.round(50 + Math.random()*900);
+    const tpv = Math.round(5_000_000 + Math.random()*95_000_000);
+    const mau = Math.round(100 + Math.random()*500); // Monthly Active Users
+    return { label, tpt, tpv, mau };
+  });
+  const totals = series.reduce((acc, r) => ({ tpt: acc.tpt + r.tpt, tpv: acc.tpv + r.tpv }), { tpt: 0, tpv: 0 });
+  const lastIdx = series.length - 1;
+  const category = deriveCategory(
+    series[lastIdx]?.tpt || 0,
+    series[lastIdx]?.tpv || 0,
+    series[lastIdx - 1]?.tpt || 0,
+    series[lastIdx - 1]?.tpv || 0
+  );
+  return { series, totals, category };
+}
+
+async function fetchMetricsTable({ product, pillar, period, date_or_month, page = 1, size = 10 }: any) {
+  await wait(120);
+  const rows = Array.from({ length: size }).map((_, idx) => {
+    const i = (page - 1) * size + idx + 1;
+    const tpt = Math.round(10 + Math.random() * 500);
+    const tpv = Math.round(500_000 + Math.random() * 20_000_000);
+    const prevTpt = Math.round(10 + Math.random() * 500);
+    const prevTpv = Math.round(500_000 + Math.random() * 20_000_000);
+    const category = deriveCategory(tpt, tpv, prevTpt, prevTpv);
+    return {
+      id: `${product}-${pillar}-${period}-${i}`,
+      date_or_month: period === "quarter" ? `Q${((i - 1) % 4) + 1} 2025` : `2025-${String(((i % 12) || 10)).padStart(2, "0")}`,
+      pillar_name: PILLARS.find((a) => a.key === pillar)?.label || pillar,
+      product: PRODUCTS.find((p) => p.key === product)?.label || product,
+      tpt,
+      tpv,
+      category,
+    };
+  });
+  return { rows, total: 120 };
+}
+
+async function fetchMerchantsTable({ product, pillar, period, date_or_month, page = 1, size = 10 }: any) {
+  await wait(120);
+  const merchants = ["Alfa Mart Bogor","R&B Store","Semeton Hebat","Klik Bazar","Love Bali","DOKU Wallet Mall","PMM Outlet","Transfer Svc Kios"];
+  const rows = Array.from({ length: size }).map((_, idx) => {
+    const name = merchants[(idx + page) % merchants.length];
+    const tpt = Math.round(10 + Math.random() * 400);
+    const tpv = Math.round(300_000 + Math.random() * 15_000_000);
+    const prevTpt = Math.round(10 + Math.random() * 400);
+    const prevTpv = Math.round(300_000 + Math.random() * 15_000_000);
+    const category = deriveCategory(tpt, tpv, prevTpt, prevTpv);
+    const idnum = (page - 1) * size + idx + 1;
+    return { 
+      id: `m-${product}-${pillar}-${period}-${page}-${idx}`, 
+      brand_id: `BRD-${String(idnum).padStart(4, "0")}`, 
+      merchant_name: name, 
+      product: PRODUCTS.find((p) => p.key === product)?.label || product, 
+      tpt, 
+      tpv, 
+      category 
+    };
+  });
+  return { rows, total: 60 };
+}
+
+async function fetchMerchantChurn({ product, page = 1, size = 8 }: any) {
+  await wait(120);
+  const merchants = ["Alfa Mart Bogor","R&B Store","Semeton Hebat","Klik Bazar","Love Bali","DOKU Wallet Mall","PMM Outlet","Transfer Svc Kios"];
+  const rows = Array.from({ length: size }).map((_, idx) => {
+    const merchant_name = merchants[idx % merchants.length];
+    const tpt = Math.round(50 + Math.random() * 300);
+    const tptDrop = Math.random() * 40; // 0-40% drop
+    const risk_category = getRiskCategory(tptDrop);
+    const action = getRiskAction(risk_category);
+    const idnum = (page - 1) * size + idx + 1;
+    return { 
+      id: `churn-${page}-${idx}`, 
+      brand_id: `BRD-${String(idnum).padStart(4, "0")}`, 
+      merchant_name, 
+      risk_category,
+      tpt,
+      action
+    };
+  });
+  return { rows, total: 64 };
+}
+
+async function fetchMerchantProfit({ product, page = 1, size = 8 }: any) {
+  await wait(120);
+  const merchants = ["Alfa Mart Bogor","R&B Store","Semeton Hebat","Klik Bazar","Love Bali","DOKU Wallet Mall","PMM Outlet","Transfer Svc Kios"];
+  const rows = Array.from({ length: size }).map((_, idx) => {
+    const merchant_name = merchants[idx % merchants.length];
+    const tpv = Math.round(2_000_000 + Math.random() * 10_000_000);
+    const tpvGrowth = (Math.random() * 60) - 10; // -10% to 50% growth
+    const potential_category = getPotentialCategory(tpvGrowth);
+    const action = getPotentialAction(potential_category);
+    const idnum = (page - 1) * size + idx + 1;
+    return { 
+      id: `profit-${page}-${idx}`, 
+      brand_id: `BRD-${String(idnum).padStart(4, "0")}`, 
+      merchant_name, 
+      potential_category,
+      tpv,
+      action
+    };
+  });
+  return { rows, total: 64 };
+}
+
+function StatusBadge({ c }: { c: string }) {
+  const map: any = { 
+    performing: "bg-emerald-100 text-emerald-700", 
+    declining_frequency: "bg-amber-100 text-amber-700", 
+    value_drop: "bg-orange-100 text-orange-700",
+    critical: "bg-rose-100 text-rose-700" 
+  };
+  const labelMap: any = {
+    performing: "Performing",
+    declining_frequency: "Declining Frequency",
+    value_drop: "Value Drop",
+    critical: "Critical"
+  };
+  return <Badge className={`rounded-xl px-3 ${map[c] || ""}`}>{labelMap[c] || c}</Badge>;
+}
+
+function RiskCategoryBadge({ category }: { category: "healthy" | "at_risk" | "critical" }) {
+  const map: any = { 
+    healthy: "bg-emerald-100 text-emerald-700", 
+    at_risk: "bg-amber-100 text-amber-700", 
+    critical: "bg-rose-100 text-rose-700" 
+  };
+  const labelMap: any = {
+    healthy: "Healthy",
+    at_risk: "At Risk",
+    critical: "Critical"
+  };
+  return <Badge className={`rounded-xl px-3 ${map[category]}`}>{labelMap[category]}</Badge>;
+}
+
+function PotentialCategoryBadge({ category }: { category: "low" | "limited" | "moderate" | "high" }) {
+  const map: any = { 
+    low: "bg-slate-100 text-slate-700",
+    limited: "bg-amber-100 text-amber-700", 
+    moderate: "bg-blue-100 text-blue-700",
+    high: "bg-emerald-100 text-emerald-700" 
+  };
+  const labelMap: any = {
+    low: "Low",
+    limited: "Limited",
+    moderate: "Moderate",
+    high: "High"
+  };
+  return <Badge className={`rounded-xl px-3 ${map[category]}`}>{labelMap[category]}</Badge>;
+}
+
+export default function PaymentsKPIDashboard() {
+  const [tab, setTab] = useState("analytics");
+  const [product, setProduct] = useState("paychat");
+  const [period, setPeriod] = useState("month");
+  const [pillar, setPillar] = useState("wallets_billing");
+  // Range-only controls (single input)
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+  const [rangeInput, setRangeInput] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const [series, setSeries] = useState<any[]>([]);
+  const [totals, setTotals] = useState<any>({ tpt: 0, tpv: 0 });
+  const [category, setCategory] = useState<string>("idle");
+
+  const [table, setTable] = useState<any[]>([]);
+  const [merchantTable, setMerchantTable] = useState<any[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [totalMerchantRows, setTotalMerchantRows] = useState(0);
+  const [page, setPage] = useState(1);
+  const [merchantPage, setMerchantPage] = useState(1);
+  const pageSize = 8;
+
+  const [recoTab, setRecoTab] = useState("merchantChurn");
+  const [churnRows, setChurnRows] = useState<any[]>([]);
+  const [profitRows, setProfitRows] = useState<any[]>([]);
+  const [churnPage, setChurnPage] = useState(1);
+  const [profitPage, setProfitPage] = useState(1);
+  const [churnTotal, setChurnTotal] = useState(0);
+  const [profitTotal, setProfitTotal] = useState(0);
+
+  // NEW: Sorting and filters per view
+  // Churn
+  const [churnSearch, setChurnSearch] = useState("");
+  const [churnRisk, setChurnRisk] = useState<string>("all");
+  const [churnSortKey, setChurnSortKey] = useState<string>("brand_id");
+  const [churnSortDir, setChurnSortDir] = useState<SortDir>("asc");
+  // Merchants Data View
+  const [merchantsSearch, setMerchantsSearch] = useState("");
+  const [merchantsCategory, setMerchantsCategory] = useState<string>("all");
+  const [merchantsSortKey, setMerchantsSortKey] = useState<string>("brand_id");
+  const [merchantsSortDir, setMerchantsSortDir] = useState<SortDir>("asc");
+  // Product agg view
+  const [aggSortKey, setAggSortKey] = useState<string>("date_or_month");
+  const [aggSortDir, setAggSortDir] = useState<SortDir>("asc");
+  const [aggCategory, setAggCategory] = useState<string>("all");
+  // Profit view
+  const [profitSearch, setProfitSearch] = useState("");
+  const [profitActionCat, setProfitActionCat] = useState<string>("all");
+  const [profitSortKey, setProfitSortKey] = useState<string>("brand_id");
+  const [profitSortDir, setProfitSortDir] = useState<SortDir>("asc");
+
+  const dateParam = useMemo(() => (rangeEnd || rangeStart), [rangeStart, rangeEnd]);
+
+  useEffect(() => {
+    const fmt = (s: string, e: string) => {
+      if (!s && !e) return "";
+      return `${s || ""}${s || e ? " - " : ""}${e || ""}`;
+    };
+    setRangeInput(fmt(rangeStart, rangeEnd));
+  }, [rangeStart, rangeEnd, period]);
+
+  // Update rangeStart and rangeEnd when dateRange changes
+  useEffect(() => {
+    if (dateRange?.from) {
+      const formatDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${year}-${month}`;
+      };
+      setRangeStart(formatDate(dateRange.from));
+      if (dateRange.to) {
+        setRangeEnd(formatDate(dateRange.to));
+      } else {
+        setRangeEnd(formatDate(dateRange.from));
+      }
+    }
+  }, [dateRange]);
+
+  function parseRangeInput(raw: string) {
+    const cleaned = raw.replace(/\s+/g, " ").trim();
+    const parts = cleaned.split("-").map((p) => p.trim());
+    if (parts.length < 2) return;
+    const left = parts[0];
+    const right = parts.slice(1).join("-").trim();
+    const monthRe = /^\d{4}-\d{2}$/;
+    const ok = monthRe.test(left) && monthRe.test(right);
+    if (!ok) return;
+    setRangeStart(left);
+    setRangeEnd(right);
+  }
+
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const [{ series, totals, category }, tableRes, merchantRes] = await Promise.all([
+        fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }),
+        fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize }),
+        fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize }),
+      ]);
+      setSeries(series);
+      setTotals(totals);
+      setCategory(category);
+      setTable(tableRes.rows);
+      setTotalRows(tableRes.total);
+      setMerchantTable(merchantRes.rows);
+      setTotalMerchantRows(merchantRes.total);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMerchantRecos = async () => {
+    const [ch, pr] = await Promise.all([
+      fetchMerchantChurn({ product, page: churnPage, size: pageSize }),
+      fetchMerchantProfit({ product, page: profitPage, size: pageSize }),
+    ]);
+    setChurnRows(ch.rows);
+    setChurnTotal(ch.total);
+    setProfitRows(pr.rows);
+    setProfitTotal(pr.total);
+  };
+
+  const handleImportData = async () => {
+    setImporting(true);
+    try {
+      const { importCheckoutData } = await import("@/lib/importCheckoutData");
+      const result = await importCheckoutData();
+      console.log("Import result:", result);
+      alert(`Successfully imported ${result.imported} records!`);
+    } catch (error) {
+      console.error("Import error:", error);
+      alert("Failed to import data. Check console for details.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  useEffect(() => { loadAll(); }, [product, period, pillar, rangeStart, rangeEnd, page, merchantPage]);
+  useEffect(() => { loadMerchantRecos(); }, [product, churnPage, profitPage]);
+
+  const totalPages = useMemo(() => Math.ceil(totalRows / pageSize), [totalRows]);
+  const totalMerchantPages = useMemo(() => Math.ceil(totalMerchantRows / pageSize), [totalMerchantRows]);
+  const churnTotalPages = useMemo(() => Math.ceil(churnTotal / pageSize), [churnTotal]);
+  const profitTotalPages = useMemo(() => Math.ceil(profitTotal / pageSize), [profitTotal]);
+
+  // Derived views
+  const sortedAggBase = useMemo(() => sortBy(table, aggSortKey as any, aggSortDir), [table, aggSortKey, aggSortDir]);
+  const filteredAgg = useMemo(() => (aggCategory === "all" ? sortedAggBase : sortedAggBase.filter((r) => r.category === aggCategory)), [sortedAggBase, aggCategory]);
+
+  const filteredMerchants = useMemo(() => {
+    const q = merchantsSearch.toLowerCase();
+    let rows = merchantTable.filter((r) => {
+      const nameOk = r.merchant_name.toLowerCase().includes(q) || (r.brand_id || "").toLowerCase().includes(q);
+      const catOk = merchantsCategory === "all" || r.category === merchantsCategory;
+      return nameOk && catOk;
+    });
+    rows = sortBy(rows, merchantsSortKey as any, merchantsSortDir);
+    return rows;
+  }, [merchantTable, merchantsSearch, merchantsCategory, merchantsSortKey, merchantsSortDir]);
+
+  const filteredChurn = useMemo(() => {
+    const q = churnSearch.toLowerCase();
+    const rows = churnRows.filter((r) => {
+      const nameOk = !q || r.merchant_name.toLowerCase().includes(q);
+      const riskOk = churnRisk === "all" || r.risk_category === churnRisk;
+      return nameOk && riskOk;
+    });
+    return sortBy(rows as any, churnSortKey as any, churnSortDir);
+  }, [churnRows, churnSearch, churnRisk, churnSortKey, churnSortDir]);
+
+  const filteredProfit = useMemo(() => {
+    const q = profitSearch.toLowerCase();
+    const filtered = profitRows.filter((r) => {
+      const nameOk = r.merchant_name.toLowerCase().includes(q);
+      const catOk = profitActionCat === "all" || r.potential_category === profitActionCat;
+      return nameOk && catOk;
+    });
+    return sortBy(filtered as any, profitSortKey as any, profitSortDir);
+  }, [profitRows, profitSearch, profitActionCat, profitSortKey, profitSortDir]);
+
+  // Sort togglers
+  const toggleAggSort = (key: string) => { if (aggSortKey === key) setAggSortDir(nextDir(aggSortDir)); else { setAggSortKey(key); setAggSortDir("asc"); } };
+  const toggleMerchantsSort = (key: string) => { if (merchantsSortKey === key) setMerchantsSortDir(nextDir(merchantsSortDir)); else { setMerchantsSortKey(key); setMerchantsSortDir("asc"); } };
+  const toggleChurnSort = (key: string) => { if (churnSortKey === key) setChurnSortDir(nextDir(churnSortDir)); else { setChurnSortKey(key); setChurnSortDir("asc"); } };
+  const toggleProfitSort = (key: string) => { if (profitSortKey === key) setProfitSortDir(nextDir(profitSortDir)); else { setProfitSortKey(key); setProfitSortDir("asc"); } };
+
+  return (
+    <div className="min-h-screen w-full bg-background p-6 lg:p-8">
+      {/* Hero Header with Gradient */}
+      <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary to-accent p-8 shadow-lg">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE4YzAtMy4zMTQgMi42ODYtNiA2LTZzNiAyLjY4NiA2IDYtMi42ODYgNi02IDYtNi0yLjY4Ni02LTZ6TTAgMThjMC0zLjMxNCAyLjY4Ni02IDYtNnM2IDIuNjg2IDYgNi0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-xl bg-white/20 p-2 backdrop-blur-sm">
+                  <Sparkles className="h-7 w-7 text-white" />
+                </div>
+                <h1 className="text-4xl font-bold text-white tracking-tight">S.M.I.R.E :)</h1>
+              </div>
+              <p className="text-white/90 text-lg font-medium">From data overload to instant insight.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={handleImportData}
+                disabled={importing}
+                className="gap-2 bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 transition-all"
+              >
+                <Users className="h-4 w-4" /> {importing ? "Importing..." : "Import CSV Data"}
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => { loadAll(); loadMerchantRecos(); }} 
+                className="gap-2 bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 transition-all"
+              >
+                <RefreshCw className="h-4 w-4" /> Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <Card className="mb-6 border-none shadow-sm">
+        <CardContent className="p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-foreground">Filters</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+        <Select value={pillar} onValueChange={(v) => { const meta = PILLARS.find((p) => p.key === v); if (meta?.soon) return; setPillar(v); }}>
+          <SelectTrigger> <SelectValue placeholder="Pillar" /> </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {PILLARS.map((p) => (<SelectItem key={p.key} value={p.key} disabled={p.soon}>{p.label}{p.soon ? " (soon)" : ""}</SelectItem>))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
+        <Select value={product} onValueChange={setProduct}>
+          <SelectTrigger> <SelectValue placeholder="Product" /> </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {PRODUCTS.map((p) => (<SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger> <SelectValue placeholder="Period" /> </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {PERIODS.map((p) => (<SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
+        {/* Date Range Picker */}
+        <div className="col-span-2">
+          <DateRangePicker
+            date={dateRange}
+            onDateChange={setDateRange}
+          />
+        </div>
+
+            <Button className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all shadow-md" onClick={loadAll}>Apply</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* KPIs */}
+      <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="rounded-lg bg-primary/10 p-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">TPT</div>
+            </div>
+            {(()=>{ const last = series[series.length-1]?.tpt||0; const prev = series[series.length-2]?.tpt||0; const pc = pctChange(last, prev); const color = pc>0?"text-emerald-600":pc<0?"text-rose-600":"text-slate-700"; const suffix = period === "quarter" ? "QoQ" : "MoM"; return (
+              <div className="space-y-1">
+                <div className="text-3xl font-bold text-foreground">{(totals.tpt).toLocaleString("id-ID")}</div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-semibold ${color}`}>{pc>0?"+":""}{pc.toFixed(1)}%</span>
+                  <span className="text-xs text-muted-foreground">{suffix}</span>
+                </div>
+              </div>
+            ); })()}
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="rounded-lg bg-accent/10 p-2">
+                <BarChart3 className="h-4 w-4 text-accent" />
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">TPV</div>
+            </div>
+            {(()=>{ const last = series[series.length-1]?.tpv||0; const prev = series[series.length-2]?.tpv||0; const pc = pctChange(last, prev); const color = pc>0?"text-emerald-600":pc<0?"text-rose-600":"text-slate-700"; const suffix = period === "quarter" ? "QoQ" : "MoM"; return (
+              <div className="space-y-1">
+                <div className="text-3xl font-bold text-foreground">{formatRupiah(totals.tpv)}</div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-semibold ${color}`}>{pc>0?"+":""}{pc.toFixed(1)}%</span>
+                  <span className="text-xs text-muted-foreground">{suffix}</span>
+                </div>
+              </div>
+            ); })()}
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
+          <CardContent className="flex items-center justify-between p-5">
+            <div>
+              <div className="text-sm text-slate-500">Status</div>
+              <div className="mt-1 text-xl font-semibold capitalize">{category.replace(/_/g, ' ')}</div>
+            </div>
+            <StatusBadge c={category} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* OUTER TABS */}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="mb-6 grid w-full grid-cols-3 p-1 bg-card shadow-sm rounded-xl">
+          <TabsTrigger value="analytics" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-white rounded-lg transition-all"><BarChart3 className="h-4 w-4" /> Analytics</TabsTrigger>
+          <TabsTrigger value="table" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-white rounded-lg transition-all"><TableIcon className="h-4 w-4" /> Data View</TabsTrigger>
+          <TabsTrigger value="reco" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-white rounded-lg transition-all"><Sparkles className="h-4 w-4" /> Recommendations</TabsTrigger>
+        </TabsList>
+
+        {/* ANALYTICS TAB */}
+        <TabsContent value="analytics">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
+            <Card className="lg:col-span-4 border-none shadow-md">
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="rounded-lg bg-primary/10 p-1.5">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground">TPT over time</h3>
+                </div>
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="tpt" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-3 border-none shadow-md">
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="rounded-lg bg-accent/10 p-1.5">
+                    <BarChart3 className="h-4 w-4 text-accent" />
+                  </div>
+                  <h3 className="font-semibold text-foreground">TPV over time</h3>
+                </div>
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip formatter={(v: any) => formatRupiah(v)} contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="tpv" stroke="hsl(var(--accent))" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-7 border-none shadow-md">
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/30 p-1.5">
+                    <Users className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <h3 className="font-semibold text-foreground">Monthly Active Users</h3>
+                </div>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={series}> 
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                      <Legend />
+                      <Bar dataKey="mau" name="Active Users" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* TABLE TAB */}
+        <TabsContent value="table">
+          <Tabs defaultValue="agg">
+            <TabsList className="mb-4 grid w-full grid-cols-2 bg-card shadow-sm rounded-lg p-1">
+              <TabsTrigger value="agg" className="rounded-md">Product</TabsTrigger>
+              <TabsTrigger value="merchants" className="rounded-md">Merchants per Product</TabsTrigger>
+            </TabsList>
+
+            {/* Product aggregation table */}
+            <TabsContent value="agg">
+              <Card className="border-none shadow-md">
+                <CardContent className="p-0">
+                  {/* Controls: filter by Category */}
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex-1" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600">Product Category:</span>
+                      <Select value={aggCategory} onValueChange={setAggCategory}>
+                        <SelectTrigger className="w-48"><SelectValue placeholder="All" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="performing">Performing</SelectItem>
+                          <SelectItem value="declining_frequency">Declining Frequency</SelectItem>
+                          <SelectItem value="value_drop">Value Drop</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-left">
+                        <tr>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("date_or_month")}>{period === "quarter" ? "Quarter" : "Month"}{sortIndicator(aggSortKey==="date_or_month", aggSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("pillar_name")}>Pillar{sortIndicator(aggSortKey==="pillar_name", aggSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("product")}>Product{sortIndicator(aggSortKey==="product", aggSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("tpt")}>TPT{sortIndicator(aggSortKey==="tpt", aggSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("tpv")}>TPV{sortIndicator(aggSortKey==="tpv", aggSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("category")}>Product Category{sortIndicator(aggSortKey==="category", aggSortDir)}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredAgg.map((r) => (
+                          <tr key={r.id} className="border-t">
+                            <td className="px-4 py-2 font-medium">{r.date_or_month}</td>
+                            <td className="px-4 py-2">{r.pillar_name}</td>
+                            <td className="px-4 py-2">{r.product}</td>
+                            <td className="px-4 py-2">{r.tpt.toLocaleString("id-ID")}</td>
+                            <td className="px-4 py-2">{formatRupiah(r.tpv)}</td>
+                            <td className="px-4 py-2"><StatusBadge c={r.category} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="text-xs text-slate-500">Page {page} of {totalPages}</div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                      <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Merchants table */}
+            <TabsContent value="merchants">
+              <Card className="border-none shadow-md">
+                <CardContent className="p-0">
+                  {/* Controls: search + category filter */}
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                    <Input
+                      placeholder="Search merchant name or brand id…"
+                      value={merchantsSearch}
+                      onChange={(e) => setMerchantsSearch(e.target.value)}
+                      className="md:max-w-sm"
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600">Merchant Category:</span>
+                      <Select value={merchantsCategory} onValueChange={setMerchantsCategory}>
+                        <SelectTrigger className="w-48"><SelectValue placeholder="All" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="performing">Performing</SelectItem>
+                          <SelectItem value="declining_frequency">Declining Frequency</SelectItem>
+                          <SelectItem value="value_drop">Value Drop</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-left">
+                        <tr>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("brand_id")}>Brand ID{sortIndicator(merchantsSortKey==="brand_id", merchantsSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("merchant_name")}>Merchant{sortIndicator(merchantsSortKey==="merchant_name", merchantsSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("product")}>Product{sortIndicator(merchantsSortKey==="product", merchantsSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("tpt")}>TPT{sortIndicator(merchantsSortKey==="tpt", merchantsSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("tpv")}>TPV{sortIndicator(merchantsSortKey==="tpv", merchantsSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleMerchantsSort("category")}>Merchant Category{sortIndicator(merchantsSortKey==="category", merchantsSortDir)}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredMerchants.map((r) => (
+                          <tr key={r.id} className="border-t">
+                            <td className="px-4 py-2 font-mono text-xs">{r.brand_id}</td>
+                            <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
+                            <td className="px-4 py-2">{r.product}</td>
+                            <td className="px-4 py-2">{r.tpt.toLocaleString("id-ID")}</td>
+                            <td className="px-4 py-2">{formatRupiah(r.tpv)}</td>
+                            <td className="px-4 py-2"><StatusBadge c={r.category} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="text-xs text-slate-500">Page {merchantPage} of {totalMerchantPages}</div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={merchantPage <= 1} onClick={() => setMerchantPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                      <Button variant="outline" size="sm" disabled={merchantPage >= totalMerchantPages} onClick={() => setMerchantPage((p) => Math.min(totalMerchantPages, p + 1))}>Next</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* RECOMMENDATIONS TAB */}
+        <TabsContent value="reco">
+          <Tabs value={recoTab} onValueChange={setRecoTab}>
+            <TabsList className="mb-4 grid w-full grid-cols-2 bg-card shadow-sm rounded-lg p-1">
+              <TabsTrigger value="merchantChurn" className="gap-2 rounded-md"><Users className="h-4 w-4" /> Merchant · Churn</TabsTrigger>
+              <TabsTrigger value="merchantProfit" className="gap-2 rounded-md"><Users className="h-4 w-4" /> Merchant · Profit</TabsTrigger>
+            </TabsList>
+
+            {/* Merchant churn */}
+            <TabsContent value="merchantChurn">
+              <Card className="border-none shadow-md">
+                <CardContent className="p-0">
+                  {/* Controls: search by merchant name & filter by risk */}
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                    <Input
+                      placeholder="Search merchant name…"
+                      value={churnSearch}
+                      onChange={(e) => setChurnSearch(e.target.value)}
+                      className="md:max-w-sm"
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600">Risk Category:</span>
+                      <Select value={churnRisk} onValueChange={setChurnRisk}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="healthy">Healthy</SelectItem>
+                          <SelectItem value="at_risk">At Risk</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-left">
+                        <tr>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("brand_id")}>Brand ID{sortIndicator(churnSortKey==="brand_id", churnSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("merchant_name")}>Merchant{sortIndicator(churnSortKey==="merchant_name", churnSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("risk_category")}>Risk Category{sortIndicator(churnSortKey==="risk_category", churnSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("tpt")}>TPT{sortIndicator(churnSortKey==="tpt", churnSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleChurnSort("action")}>Recommendation Action{sortIndicator(churnSortKey==="action", churnSortDir)}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredChurn.map((r) => (
+                          <tr key={r.id} className="border-t">
+                            <td className="px-4 py-2 font-mono text-xs">{r.brand_id}</td>
+                            <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
+                            <td className="px-4 py-2"><RiskCategoryBadge category={r.risk_category} /></td>
+                            <td className="px-4 py-2">{r.tpt.toLocaleString("id-ID")}</td>
+                            <td className="px-4 py-2">{r.action}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="text-xs text-slate-500">Page {churnPage} of {churnTotalPages}</div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={churnPage <= 1} onClick={() => setChurnPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                      <Button variant="outline" size="sm" disabled={churnPage >= churnTotalPages} onClick={() => setChurnPage((p) => Math.min(churnTotalPages, p + 1))}>Next</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Merchant profit */}
+            <TabsContent value="merchantProfit">
+              <Card className="border-none shadow-md">
+                <CardContent className="p-0">
+                  {/* Controls: search by merchant & filter by potential category */}
+                  <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                    <Input
+                      placeholder="Search merchant…"
+                      value={profitSearch}
+                      onChange={(e) => setProfitSearch(e.target.value)}
+                      className="md:max-w-sm"
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600">Potential Category:</span>
+                      <Select value={profitActionCat} onValueChange={setProfitActionCat}>
+                        <SelectTrigger className="w-44"><SelectValue placeholder="All" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="limited">Limited</SelectItem>
+                          <SelectItem value="moderate">Moderate</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50 text-left">
+                        <tr>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("brand_id")}>Brand ID{sortIndicator(profitSortKey==="brand_id", profitSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("merchant_name")}>Merchant{sortIndicator(profitSortKey==="merchant_name", profitSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("potential_category")}>Potential Category{sortIndicator(profitSortKey==="potential_category", profitSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("tpv")}>TPV{sortIndicator(profitSortKey==="tpv", profitSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleProfitSort("action")}>Recommendation Action{sortIndicator(profitSortKey==="action", profitSortDir)}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredProfit.map((r) => (
+                          <tr key={r.id} className="border-t">
+                            <td className="px-4 py-2 font-mono text-xs">{r.brand_id}</td>
+                            <td className="px-4 py-2 font-medium">{r.merchant_name}</td>
+                            <td className="px-4 py-2"><PotentialCategoryBadge category={r.potential_category} /></td>
+                            <td className="px-4 py-2">{formatRupiah(r.tpv)}</td>
+                            <td className="px-4 py-2">{r.action}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between p-4">
+                    <div className="text-xs text-slate-500">Page {profitPage} of {profitTotalPages}</div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={profitPage <= 1} onClick={() => setProfitPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                      <Button variant="outline" size="sm" disabled={profitPage >= profitTotalPages} onClick={() => setProfitPage((p) => Math.min(profitTotalPages, p + 1))}>Next</Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+      </Tabs>
+
+      {loading && (
+        <div className="pointer-events-none fixed inset-0 flex items-center justify-center bg-white/50">
+          <div className="animate-pulse rounded-xl bg-white px-4 py-2 text-slate-700 shadow">Loading…</div>
+        </div>
+      )}
+    </div>
+  );
+}
