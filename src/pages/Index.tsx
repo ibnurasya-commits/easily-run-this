@@ -509,13 +509,17 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
     const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
     const prevEnd = prevStart;
     
+    // Calculate next month boundaries for proper date ranges
+    const currentNextMonth = addMonths(new Date(currentEnd + '-01'), 1).toISOString().slice(0, 10);
+    const prevNextMonth = addMonths(new Date(prevEnd + '-01'), 1).toISOString().slice(0, 10);
+    
     // Query current period
     let currentQuery = supabase
       .from('merchant_data')
       .select('brand_id, merchant_name, tpt');
     if (dbProduct) currentQuery = currentQuery.eq('product_type', dbProduct);
     if (dbPillar) currentQuery = currentQuery.eq('pillar', dbPillar);
-    currentQuery = currentQuery.gte('date', `${currentStart}-01`).lte('date', `${currentEnd}-28`);
+    currentQuery = currentQuery.gte('date', `${currentStart}-01`).lt('date', currentNextMonth);
     
     // Query previous period
     let previousQuery = supabase
@@ -523,7 +527,7 @@ async function fetchMerchantChurn({ product, pillar, rangeStart, rangeEnd, page 
       .select('brand_id, merchant_name, tpt');
     if (dbProduct) previousQuery = previousQuery.eq('product_type', dbProduct);
     if (dbPillar) previousQuery = previousQuery.eq('pillar', dbPillar);
-    previousQuery = previousQuery.gte('date', `${prevStart}-01`).lte('date', `${prevEnd}-28`);
+    previousQuery = previousQuery.gte('date', `${prevStart}-01`).lt('date', prevNextMonth);
     
     const [{ data: currentData }, { data: previousData }] = await Promise.all([
       currentQuery,
@@ -591,13 +595,17 @@ async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page
     const prevStart = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
     const prevEnd = prevStart;
     
+    // Calculate next month boundaries for proper date ranges
+    const currentNextMonth = addMonths(new Date(currentEnd + '-01'), 1).toISOString().slice(0, 10);
+    const prevNextMonth = addMonths(new Date(prevEnd + '-01'), 1).toISOString().slice(0, 10);
+    
     // Query current period
     let currentQuery = supabase
       .from('merchant_data')
       .select('brand_id, merchant_name, tpv');
     if (dbProduct) currentQuery = currentQuery.eq('product_type', dbProduct);
     if (dbPillar) currentQuery = currentQuery.eq('pillar', dbPillar);
-    currentQuery = currentQuery.gte('date', `${currentStart}-01`).lte('date', `${currentEnd}-28`);
+    currentQuery = currentQuery.gte('date', `${currentStart}-01`).lt('date', currentNextMonth);
     
     // Query previous period
     let previousQuery = supabase
@@ -605,7 +613,7 @@ async function fetchMerchantProfit({ product, pillar, rangeStart, rangeEnd, page
       .select('brand_id, merchant_name, tpv');
     if (dbProduct) previousQuery = previousQuery.eq('product_type', dbProduct);
     if (dbPillar) previousQuery = previousQuery.eq('pillar', dbPillar);
-    previousQuery = previousQuery.gte('date', `${prevStart}-01`).lte('date', `${prevEnd}-28`);
+    previousQuery = previousQuery.gte('date', `${prevStart}-01`).lt('date', prevNextMonth);
     
     const [{ data: currentData }, { data: previousData }] = await Promise.all([
       currentQuery,
