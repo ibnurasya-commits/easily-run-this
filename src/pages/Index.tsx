@@ -1114,12 +1114,27 @@ export default function PaymentsKPIDashboard() {
           </CardContent>
         </Card>
         <Card className="border-none shadow-md hover:shadow-lg transition-all duration-300">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <div className="text-sm text-slate-500">Status</div>
-              <div className="mt-1 text-xl font-semibold capitalize">{kpiMetrics.category.replace(/_/g, ' ')}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="rounded-lg bg-primary/10 p-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">Status</div>
             </div>
-            <StatusBadge c={kpiMetrics.category} />
+            {(()=>{ 
+              const colorMap: any = { 
+                performing: "text-emerald-600", 
+                declining_frequency: "text-amber-600", 
+                value_drop: "text-orange-600",
+                critical: "text-rose-600" 
+              };
+              const color = colorMap[kpiMetrics.category] || "text-foreground";
+              return (
+                <div className={`text-3xl font-bold capitalize ${color}`}>
+                  {kpiMetrics.category.replace(/_/g, ' ')}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
