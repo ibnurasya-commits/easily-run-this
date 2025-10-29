@@ -1242,6 +1242,7 @@ export default function PaymentsKPIDashboard() {
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("product")}>Product{sortIndicator(aggSortKey==="product", aggSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("tpt")}>TPT{sortIndicator(aggSortKey==="tpt", aggSortDir)}</th>
                           <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("tpv")}>TPV{sortIndicator(aggSortKey==="tpv", aggSortDir)}</th>
+                          <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleAggSort("category")}>Product Category{sortIndicator(aggSortKey==="category", aggSortDir)}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1252,6 +1253,7 @@ export default function PaymentsKPIDashboard() {
                             <td className="px-4 py-2">{r.product}</td>
                             <td className="px-4 py-2">{r.tpt.toLocaleString("id-ID")}</td>
                             <td className="px-4 py-2">{formatRupiah(r.tpv)}</td>
+                            <td className="px-4 py-2"><StatusBadge c={r.category} /></td>
                           </tr>
                         ))}
                       </tbody>
