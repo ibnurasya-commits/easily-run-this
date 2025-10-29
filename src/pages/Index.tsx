@@ -153,28 +153,36 @@ function addDays(d: Date, delta: number) { const nd = new Date(d); nd.setDate(nd
 function addQuarters(d: Date, delta: number) { const nd = new Date(d); nd.setMonth(nd.getMonth()+delta*3); return nd; }
 function pctChange(curr: number, prev: number) { if (!prev) return 0; return ((curr-prev)/prev)*100; }
 
-async function fetchKPIMetrics({ product, pillar }: any) {
+async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
   try {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     const dbProduct = product === "paychat" ? "PayChat" : product;
     
-    // First, get the most recent month in the data
-    let lastMonthQuery = supabase
-      .from('merchant_data')
-      .select('date')
-      .order('date', { ascending: false })
-      .limit(1);
+    // Use rangeEnd as the last month, or fall back to finding the most recent month
+    let lastMonth: string;
     
-    if (dbProduct) lastMonthQuery = lastMonthQuery.eq('product_type', dbProduct);
-    if (dbPillar) lastMonthQuery = lastMonthQuery.eq('pillar', dbPillar);
-    
-    const { data: lastMonthData, error: lastMonthError } = await lastMonthQuery;
-    if (lastMonthError) throw lastMonthError;
-    if (!lastMonthData || lastMonthData.length === 0) {
-      return { tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle" };
+    if (rangeEnd) {
+      lastMonth = rangeEnd; // e.g., "2025-10"
+    } else {
+      // Fallback: get the most recent month in the data
+      let lastMonthQuery = supabase
+        .from('merchant_data')
+        .select('date')
+        .order('date', { ascending: false })
+        .limit(1);
+      
+      if (dbProduct) lastMonthQuery = lastMonthQuery.eq('product_type', dbProduct);
+      if (dbPillar) lastMonthQuery = lastMonthQuery.eq('pillar', dbPillar);
+      
+      const { data: lastMonthData, error: lastMonthError } = await lastMonthQuery;
+      if (lastMonthError) throw lastMonthError;
+      if (!lastMonthData || lastMonthData.length === 0) {
+        return { tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle" };
+      }
+      
+      lastMonth = lastMonthData[0].date.slice(0, 7); // e.g., "2025-09"
     }
     
-    const lastMonth = lastMonthData[0].date.slice(0, 7); // e.g., "2025-09"
     const lastMonthDate = new Date(lastMonth + "-01");
     const prevMonthDate = addMonths(lastMonthDate, -1);
     const prevMonth = prevMonthDate.toISOString().slice(0, 7); // e.g., "2025-08"
@@ -795,7 +803,7 @@ export default function PaymentsKPIDashboard() {
     setLoading(true);
     try {
       const [kpiData, { series }, tableRes, merchantRes] = await Promise.all([
-        fetchKPIMetrics({ product, pillar }),
+        fetchKPIMetrics({ product, pillar, rangeEnd }),
         fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }),
         fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize, rangeStart, rangeEnd }),
         fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize, rangeStart, rangeEnd }),
