@@ -173,7 +173,9 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
     const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
     const dbProduct = mapProductToDb(product);
     
-    console.log("fetchKPIMetrics called with:", { product, pillar, rangeEnd, dbProduct, dbPillar });
+    console.log("=== fetchKPIMetrics DEBUG ===");
+    console.log("Input params:", { product, pillar, rangeEnd });
+    console.log("Mapped to DB:", { dbProduct, dbPillar });
     
     // Use rangeEnd as the last month, or fall back to finding the most recent month
     let lastMonth: string;
@@ -226,9 +228,14 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
     const { data, error } = await query;
     if (error) throw error;
     
+    console.log("Query returned rows:", data?.length);
+    console.log("Date range:", { prevMonthStart, lastMonth, nextMonthStart });
+    console.log("Filters applied:", { dbProduct: !!dbProduct, dbPillar: !!dbPillar });
+    
     // Aggregate by month
     let lastMonthTPT = 0, lastMonthTPV = 0;
     let prevMonthTPT = 0, prevMonthTPV = 0;
+    let lastMonthCount = 0, prevMonthCount = 0;
     
     data?.forEach(row => {
       const month = row.date.slice(0, 7);
@@ -238,11 +245,17 @@ async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
       if (month === lastMonth) {
         lastMonthTPT += tpt;
         lastMonthTPV += tpv;
+        lastMonthCount++;
       } else if (month === prevMonth) {
         prevMonthTPT += tpt;
         prevMonthTPV += tpv;
+        prevMonthCount++;
       }
     });
+    
+    console.log("Aggregation results:");
+    console.log(`  Last month (${lastMonth}): TPT=${lastMonthTPT}, TPV=${lastMonthTPV}, rows=${lastMonthCount}`);
+    console.log(`  Prev month (${prevMonth}): TPT=${prevMonthTPT}, TPV=${prevMonthTPV}, rows=${prevMonthCount}`);
     
     const tptChange = pctChange(lastMonthTPT, prevMonthTPT);
     const tpvChange = pctChange(lastMonthTPV, prevMonthTPV);
