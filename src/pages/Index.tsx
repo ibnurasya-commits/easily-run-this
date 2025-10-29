@@ -73,6 +73,11 @@ export function formatRupiah(n: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 }
 
+export function formatRupiahBio(n: number) {
+  const bio = n / 1_000_000_000;
+  return `Rp ${bio.toFixed(3).replace(/\.?0+$/, '')} Bio`;
+}
+
 export function getRiskCategory(tptDrop: number): "healthy" | "at_risk" | "critical" {
   if (tptDrop >= 30) return "critical";
   if (tptDrop >= 20) return "at_risk";
@@ -1158,7 +1163,7 @@ export default function PaymentsKPIDashboard() {
                     <LineChart data={series} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => formatRupiahBio(v)} />
                       <Tooltip formatter={(v: any) => formatRupiah(v)} contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
                       <Legend />
                       <Line type="monotone" dataKey="tpv" stroke="hsl(var(--accent))" strokeWidth={2} />
