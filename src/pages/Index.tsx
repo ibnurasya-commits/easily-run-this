@@ -1001,34 +1001,7 @@ export default function PaymentsKPIDashboard() {
               </div>
               <p className="text-white/90 text-lg font-medium">From data overload to instant insight.</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={handleImportFromFile}
-                disabled={importing}
-                className="gap-2 bg-emerald-500/90 backdrop-blur-sm border-white/30 text-white hover:bg-emerald-600 transition-all"
-              >
-                <Upload className="h-4 w-4" /> {importing ? "Importing..." : "Import Uploaded Data"}
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={handleImportData}
-                disabled={importing}
-                className="gap-2 bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 transition-all"
-              >
-                <Users className="h-4 w-4" /> {importing ? "Importing..." : "Import CSV File"}
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={() => { loadAll(); loadMerchantRecos(); }} 
-                className="gap-2 bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 transition-all"
-              >
-                <RefreshCw className="h-4 w-4" /> Refresh
-              </Button>
-            </div>
+            
           </div>
         </div>
       </div>
