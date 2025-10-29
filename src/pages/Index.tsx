@@ -825,11 +825,11 @@ export default function PaymentsKPIDashboard() {
   const [period, setPeriod] = useState("month");
   const [pillar, setPillar] = useState("wallets_billing");
   // Range-only controls (single input)
-  const [rangeStart, setRangeStart] = useState("2025-05");
+  const [rangeStart, setRangeStart] = useState("2025-01");
   const [rangeEnd, setRangeEnd] = useState("2025-09");
   const [rangeInput, setRangeInput] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date("2025-05-01"),
+    from: new Date("2025-01-01"),
     to: new Date("2025-09-01")
   });
   const [loading, setLoading] = useState(false);
