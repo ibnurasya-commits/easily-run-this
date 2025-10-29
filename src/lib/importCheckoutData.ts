@@ -21,10 +21,8 @@ function parseMonthToDate(monthStr: string): string {
 
 export async function importCheckoutData(csvContent: string) {
   try {
-    // Remove BOM if present
-    const cleanContent = csvContent.replace(/^\uFEFF/, '');
-    const lines = cleanContent.trim().split('\n');
-    const headers = lines[0].split(';').map(h => h.trim());
+    const lines = csvContent.trim().split('\n');
+    const headers = lines[0].split(';');
     
     const records = [];
     for (let i = 1; i < lines.length; i++) {

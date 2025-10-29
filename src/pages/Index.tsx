@@ -153,102 +153,6 @@ function addDays(d: Date, delta: number) { const nd = new Date(d); nd.setDate(nd
 function addQuarters(d: Date, delta: number) { const nd = new Date(d); nd.setMonth(nd.getMonth()+delta*3); return nd; }
 function pctChange(curr: number, prev: number) { if (!prev) return 0; return ((curr-prev)/prev)*100; }
 
-async function fetchKPIMetrics({ product, pillar, rangeEnd }: any) {
-  try {
-    const dbPillar = pillar === "wallets_billing" ? "Wallets_Billing" : pillar;
-    const dbProduct = product === "paychat" ? "PayChat" : product;
-    
-    // Use rangeEnd as the last month, or fall back to finding the most recent month
-    let lastMonth: string;
-    
-    if (rangeEnd) {
-      lastMonth = rangeEnd; // e.g., "2025-10"
-    } else {
-      // Fallback: get the most recent month in the data
-      let lastMonthQuery = supabase
-        .from('merchant_data')
-        .select('date')
-        .order('date', { ascending: false })
-        .limit(1);
-      
-      if (dbProduct) lastMonthQuery = lastMonthQuery.eq('product_type', dbProduct);
-      if (dbPillar) lastMonthQuery = lastMonthQuery.eq('pillar', dbPillar);
-      
-      const { data: lastMonthData, error: lastMonthError } = await lastMonthQuery;
-      if (lastMonthError) throw lastMonthError;
-      if (!lastMonthData || lastMonthData.length === 0) {
-        return { tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle" };
-      }
-      
-      lastMonth = lastMonthData[0].date.slice(0, 7); // e.g., "2025-09"
-    }
-    
-    const lastMonthDate = new Date(lastMonth + "-01");
-    const prevMonthDate = addMonths(lastMonthDate, -1);
-    const prevMonth = prevMonthDate.toISOString().slice(0, 7); // e.g., "2025-08"
-    
-    // Fetch data for both months
-    let query = supabase
-      .from('merchant_data')
-      .select('date, tpt, tpv, brand_id')
-      .in('date', [
-        lastMonth + '-01', lastMonth + '-02', lastMonth + '-03', lastMonth + '-04', lastMonth + '-05',
-        lastMonth + '-06', lastMonth + '-07', lastMonth + '-08', lastMonth + '-09', lastMonth + '-10',
-        lastMonth + '-11', lastMonth + '-12', lastMonth + '-13', lastMonth + '-14', lastMonth + '-15',
-        lastMonth + '-16', lastMonth + '-17', lastMonth + '-18', lastMonth + '-19', lastMonth + '-20',
-        lastMonth + '-21', lastMonth + '-22', lastMonth + '-23', lastMonth + '-24', lastMonth + '-25',
-        lastMonth + '-26', lastMonth + '-27', lastMonth + '-28', lastMonth + '-29', lastMonth + '-30',
-        lastMonth + '-31',
-        prevMonth + '-01', prevMonth + '-02', prevMonth + '-03', prevMonth + '-04', prevMonth + '-05',
-        prevMonth + '-06', prevMonth + '-07', prevMonth + '-08', prevMonth + '-09', prevMonth + '-10',
-        prevMonth + '-11', prevMonth + '-12', prevMonth + '-13', prevMonth + '-14', prevMonth + '-15',
-        prevMonth + '-16', prevMonth + '-17', prevMonth + '-18', prevMonth + '-19', prevMonth + '-20',
-        prevMonth + '-21', prevMonth + '-22', prevMonth + '-23', prevMonth + '-24', prevMonth + '-25',
-        prevMonth + '-26', prevMonth + '-27', prevMonth + '-28', prevMonth + '-29', prevMonth + '-30',
-        prevMonth + '-31'
-      ]);
-    
-    if (dbProduct) query = query.eq('product_type', dbProduct);
-    if (dbPillar) query = query.eq('pillar', dbPillar);
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    
-    // Aggregate by month
-    let lastMonthTPT = 0, lastMonthTPV = 0;
-    let prevMonthTPT = 0, prevMonthTPV = 0;
-    
-    data?.forEach(row => {
-      const month = row.date.slice(0, 7);
-      const tpt = Number(row.tpt) || 0;
-      const tpv = Number(row.tpv) || 0;
-      
-      if (month === lastMonth) {
-        lastMonthTPT += tpt;
-        lastMonthTPV += tpv;
-      } else if (month === prevMonth) {
-        prevMonthTPT += tpt;
-        prevMonthTPV += tpv;
-      }
-    });
-    
-    const tptChange = pctChange(lastMonthTPT, prevMonthTPT);
-    const tpvChange = pctChange(lastMonthTPV, prevMonthTPV);
-    const category = deriveCategory(lastMonthTPT, lastMonthTPV, prevMonthTPT, prevMonthTPV);
-    
-    return {
-      tpt: Math.round(lastMonthTPT),
-      tpv: Math.round(lastMonthTPV),
-      tptChange,
-      tpvChange,
-      category
-    };
-  } catch (error) {
-    console.error("Error fetching KPI metrics:", error);
-    return { tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle" };
-  }
-}
-
 async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }: any) {
   try {
     // Map pillar from UI value to DB value
@@ -258,7 +162,7 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
     
     let query = supabase
       .from('merchant_data')
-      .select('date, tpt, tpv, brand_id');
+      .select('date, tpt, tpv, merchant_name');
     
     // Filter by product and pillar
     if (dbProduct) query = query.eq('product_type', dbProduct);
@@ -282,15 +186,13 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
         const date = new Date(row.date);
         const q = Math.floor(date.getMonth() / 3) + 1;
         const key = `Q${q} ${date.getFullYear()}`;
-        const tptValue = Number(row.tpt) || 0;
         
         if (!quarterMap[key]) {
           quarterMap[key] = { tpt: 0, tpv: 0, mau: new Set() };
         }
-        quarterMap[key].tpt += tptValue;
+        quarterMap[key].tpt += Number(row.tpt) || 0;
         quarterMap[key].tpv += Number(row.tpv) || 0;
-        // Count unique brand_ids with at least one TPT
-        if (tptValue > 0 && row.brand_id) quarterMap[key].mau.add(row.brand_id);
+        if (row.merchant_name) quarterMap[key].mau.add(row.merchant_name);
       });
       
       const series = Object.entries(quarterMap)
@@ -303,7 +205,16 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
         .sort((a, b) => a.label.localeCompare(b.label))
         .slice(-points);
       
-      return { series };
+      const totals = series.reduce((acc, r) => ({ tpt: acc.tpt + r.tpt, tpv: acc.tpv + r.tpv }), { tpt: 0, tpv: 0 });
+      const lastIdx = series.length - 1;
+      const category = deriveCategory(
+        series[lastIdx]?.tpt || 0,
+        series[lastIdx]?.tpv || 0,
+        series[lastIdx - 1]?.tpt || 0,
+        series[lastIdx - 1]?.tpv || 0
+      );
+      
+      return { series, totals, category };
     } else {
       // Aggregate by month
       const monthMap: Record<string, { tpt: number; tpv: number; mau: Set<string> }> = {};
@@ -311,15 +222,13 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
       data?.forEach(row => {
         const date = new Date(row.date);
         const key = date.toISOString().slice(0, 7);
-        const tptValue = Number(row.tpt) || 0;
         
         if (!monthMap[key]) {
           monthMap[key] = { tpt: 0, tpv: 0, mau: new Set() };
         }
-        monthMap[key].tpt += tptValue;
+        monthMap[key].tpt += Number(row.tpt) || 0;
         monthMap[key].tpv += Number(row.tpv) || 0;
-        // Count unique brand_ids with at least one TPT
-        if (tptValue > 0 && row.brand_id) monthMap[key].mau.add(row.brand_id);
+        if (row.merchant_name) monthMap[key].mau.add(row.merchant_name);
       });
       
       const series = Object.entries(monthMap)
@@ -332,11 +241,20 @@ async function fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEn
         .sort((a, b) => a.label.localeCompare(b.label))
         .slice(-points);
       
-      return { series };
+      const totals = series.reduce((acc, r) => ({ tpt: acc.tpt + r.tpt, tpv: acc.tpv + r.tpv }), { tpt: 0, tpv: 0 });
+      const lastIdx = series.length - 1;
+      const category = deriveCategory(
+        series[lastIdx]?.tpt || 0,
+        series[lastIdx]?.tpv || 0,
+        series[lastIdx - 1]?.tpt || 0,
+        series[lastIdx - 1]?.tpv || 0
+      );
+      
+      return { series, totals, category };
     }
   } catch (error) {
     console.error("Error fetching metrics series:", error);
-    return { series: [] };
+    return { series: [], totals: { tpt: 0, tpv: 0 }, category: "idle" };
   }
 }
 
@@ -720,7 +638,8 @@ export default function PaymentsKPIDashboard() {
   const [importing, setImporting] = useState(false);
 
   const [series, setSeries] = useState<any[]>([]);
-  const [kpiMetrics, setKpiMetrics] = useState<any>({ tpt: 0, tpv: 0, tptChange: 0, tpvChange: 0, category: "idle" });
+  const [totals, setTotals] = useState<any>({ tpt: 0, tpv: 0 });
+  const [category, setCategory] = useState<string>("idle");
 
   const [table, setTable] = useState<any[]>([]);
   const [merchantTable, setMerchantTable] = useState<any[]>([]);
@@ -802,14 +721,14 @@ export default function PaymentsKPIDashboard() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [kpiData, { series }, tableRes, merchantRes] = await Promise.all([
-        fetchKPIMetrics({ product, pillar, rangeEnd }),
+      const [{ series, totals, category }, tableRes, merchantRes] = await Promise.all([
         fetchMetricsSeries({ product, pillar, period, rangeStart, rangeEnd }),
         fetchMetricsTable({ product, pillar, period, date_or_month: dateParam, page, size: pageSize, rangeStart, rangeEnd }),
         fetchMerchantsTable({ product, pillar, period, date_or_month: dateParam, page: merchantPage, size: pageSize, rangeStart, rangeEnd }),
       ]);
-      setKpiMetrics(kpiData);
       setSeries(series);
+      setTotals(totals);
+      setCategory(category);
       setTable(tableRes.rows);
       setTotalRows(tableRes.total);
       setMerchantTable(merchantRes.rows);
@@ -1006,12 +925,12 @@ export default function PaymentsKPIDashboard() {
               </div>
               <div className="text-sm font-medium text-muted-foreground">TPT</div>
             </div>
-            {(()=>{ const pc = kpiMetrics.tptChange; const color = pc>0?"text-emerald-600":pc<0?"text-rose-600":"text-slate-700"; return (
+            {(()=>{ const last = series[series.length-1]?.tpt||0; const prev = series[series.length-2]?.tpt||0; const pc = pctChange(last, prev); const color = pc>0?"text-emerald-600":pc<0?"text-rose-600":"text-slate-700"; const suffix = period === "quarter" ? "QoQ" : "MoM"; return (
               <div className="space-y-1">
-                <div className="text-3xl font-bold text-foreground">{(kpiMetrics.tpt).toLocaleString("id-ID")}</div>
+                <div className="text-3xl font-bold text-foreground">{(totals.tpt).toLocaleString("id-ID")}</div>
                 <div className="flex items-center gap-2">
                   <span className={`text-sm font-semibold ${color}`}>{pc>0?"+":""}{pc.toFixed(1)}%</span>
-                  <span className="text-xs text-muted-foreground">MoM</span>
+                  <span className="text-xs text-muted-foreground">{suffix}</span>
                 </div>
               </div>
             ); })()}
@@ -1025,12 +944,12 @@ export default function PaymentsKPIDashboard() {
               </div>
               <div className="text-sm font-medium text-muted-foreground">TPV</div>
             </div>
-            {(()=>{ const pc = kpiMetrics.tpvChange; const color = pc>0?"text-emerald-600":pc<0?"text-rose-600":"text-slate-700"; return (
+            {(()=>{ const last = series[series.length-1]?.tpv||0; const prev = series[series.length-2]?.tpv||0; const pc = pctChange(last, prev); const color = pc>0?"text-emerald-600":pc<0?"text-rose-600":"text-slate-700"; const suffix = period === "quarter" ? "QoQ" : "MoM"; return (
               <div className="space-y-1">
-                <div className="text-3xl font-bold text-foreground">{formatRupiah(kpiMetrics.tpv)}</div>
+                <div className="text-3xl font-bold text-foreground">{formatRupiah(totals.tpv)}</div>
                 <div className="flex items-center gap-2">
                   <span className={`text-sm font-semibold ${color}`}>{pc>0?"+":""}{pc.toFixed(1)}%</span>
-                  <span className="text-xs text-muted-foreground">MoM</span>
+                  <span className="text-xs text-muted-foreground">{suffix}</span>
                 </div>
               </div>
             ); })()}
@@ -1040,9 +959,9 @@ export default function PaymentsKPIDashboard() {
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <div className="text-sm text-slate-500">Status</div>
-              <div className="mt-1 text-xl font-semibold capitalize">{kpiMetrics.category.replace(/_/g, ' ')}</div>
+              <div className="mt-1 text-xl font-semibold capitalize">{category.replace(/_/g, ' ')}</div>
             </div>
-            <StatusBadge c={kpiMetrics.category} />
+            <StatusBadge c={category} />
           </CardContent>
         </Card>
       </div>
